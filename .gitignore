@@ -1,0 +1,37 @@
+# Substrate .gitignore
+
+# Rust build artifacts
+/target/
+**/*.rs.bk
+
+# Generated files
+Cargo.lock
+
+# Build artifacts
+*.wasm
+wasm_code
+
+# Logs
+*.log
+
+# Directory for compiled executables and dependency caches
+bin/
+node_modules/
+
+# Mac specific
+.DS_Store
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+
+# Editor-specific settings and folders
+.vscode/
+.idea/
+*.iml
+
+# Node specific
+/node_runtime/
+/node_template/
+
