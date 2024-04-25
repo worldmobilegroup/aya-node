@@ -744,6 +744,7 @@ dependencies = [
 name = "aya-runtime"
 version = "0.1.0"
 dependencies = [
+ "chain-listener",
  "fp-account",
  "fp-evm",
  "fp-rpc",
@@ -1220,6 +1221,21 @@ dependencies = [
  "cipher 0.4.4",
  "poly1305",
  "zeroize",
+]
+
+[[package]]
+name = "chain-listener"
+version = "1.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
 ]
 
 [[package]]

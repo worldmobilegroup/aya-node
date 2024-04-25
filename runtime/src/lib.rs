@@ -71,11 +71,15 @@ use pallet_evm::{
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
+
 // A few exports that help ease life for downstream crates.
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::Multiplier;
+
+pub use chain_listener;
+
 
 mod precompiles;
 
@@ -327,6 +331,16 @@ impl substrate_validator_set::Config for Runtime {
     type MinAuthorities = MinAuthorities;
     type WeightInfo = ();
 }
+
+
+// impl chain_listener::Config for Runtime {
+// 	type RuntimeEvent = RuntimeEvent;
+// 	type WeightInfo = pallet_template::weights::SubstrateWeight<Runtime>;
+// }
+
+
+
+
 
 parameter_types! {
     pub const Period: u32 = 2 * MINUTES;
@@ -767,6 +781,7 @@ frame_support::construct_runtime!(
         Timestamp: pallet_timestamp,
         Balances: pallet_balances,
         ValidatorSet: substrate_validator_set,
+        // ChainListener: pallet_chain_listener,
         Session: pallet_session,
         ImOnline: pallet_im_online,
         Aura: pallet_aura,
