@@ -1,15 +1,6 @@
-
-
 #![cfg_attr(not(feature = "std"), no_std)]
 
-
 pub use pallet::*;
-
-
-#[cfg(test)]
-mod mock;
-
-
 #[cfg(test)]
 mod tests;
 
@@ -19,90 +10,67 @@ mod benchmarking;
 pub mod weights;
 pub use weights::*;
 
-
 #[frame_support::pallet]
 pub mod pallet {
-	
-	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
+    use frame_support::{pallet_prelude::*, weights::Weight};
+    use frame_system::{pallet_prelude::*, offchain::*};
+    use sp_runtime::offchain::*;
+    use sp_consensus_aura::ed25519::AuthorityId;
+   
+    use sp_core::Public;
 
-	
-	#[pallet::pallet]
-	pub struct Pallet<T>(_);
-
-	
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
-	
+	pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-	
 		type WeightInfo: WeightInfo;
-	}
+		type AuthorityId: Public;
+        
+    }
 
+    #[pallet::pallet]
 	
-	#[pallet::storage]
-	pub type Something<T> = StorageValue<_, u32>;
+    #[pallet::without_storage_info]
+    pub struct Pallet<T>(_);
 
-	
-	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	pub enum Event<T: Config> {
-	
-		SomethingStored {
-	
-			something: u32,
-	
-			who: T::AccountId,
-		},
-	}
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+       
+        fn offchain_worker(block_number: BlockNumberFor<T>) {
+            // off-chain worker logic
+            log::info!("Hello from offchain worker: {:?}", block_number);
+        }
+    }
 
-	
-	#[pallet::error]
-	pub enum Error<T> {
-	
-		NoneValue,
-	
-		StorageOverflow,
-	}
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
+        // Add your extrinsics here
+    }
 
-	
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {
-	
-		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::do_something())]
-		pub fn do_something(origin: OriginFor<T>, something: u32) -> DispatchResult {
-	
-			let who = ensure_signed(origin)?;
+    #[pallet::error]
+    pub enum Error<T> {
+        // Add your error variants here
+    }
 
-	
-			Something::<T>::put(something);
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    pub enum Event<T: Config> {
+        // Add your event variants here
+    }
 
-	
-			Self::deposit_event(Event::SomethingStored { something, who });
+    #[pallet::type_value]
+    pub fn DefaultForRuntimeEvent() -> () {
+        ()
+    }
 
-	
-			Ok(())
+	pub trait WeightInfo {
+		fn some_extrinsic() -> Weight {
+			Weight::zero()
 		}
-
+	}
 	
-		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::cause_error())]
-		pub fn cause_error(origin: OriginFor<T>) -> DispatchResult {
-			let _who = ensure_signed(origin)?;
-
-	
-			match Something::<T>::get() {
-	
-				None => Err(Error::<T>::NoneValue.into()),
-				Some(old) => {
-					let new = old.checked_add(1).ok_or(Error::<T>::StorageOverflow)?;
-	
-					Something::<T>::put(new);
-					Ok(())
-				},
-			}
+	impl WeightInfo for () {
+		fn some_extrinsic() -> Weight {
+			Weight::zero()
 		}
 	}
 }

@@ -332,14 +332,13 @@ impl substrate_validator_set::Config for Runtime {
     type WeightInfo = ();
 }
 
+use sp_consensus_aura::ed25519::AuthorityId;
+impl chain_listener::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
+    type AuthorityId = AuthorityId;   
 
-// impl chain_listener::Config for Runtime {
-// 	type RuntimeEvent = RuntimeEvent;
-// 	type WeightInfo = pallet_template::weights::SubstrateWeight<Runtime>;
-// }
-
-
-
+}
 
 
 parameter_types! {
@@ -774,6 +773,8 @@ impl pallet_manual_seal::Config for Runtime {}
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
 
+
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 frame_support::construct_runtime!(
     pub enum Runtime {
@@ -781,7 +782,7 @@ frame_support::construct_runtime!(
         Timestamp: pallet_timestamp,
         Balances: pallet_balances,
         ValidatorSet: substrate_validator_set,
-        // ChainListener: pallet_chain_listener,
+        ChainListener: chain_listener::{Pallet, Call, Storage, Event<T>},
         Session: pallet_session,
         ImOnline: pallet_im_online,
         Aura: pallet_aura,

@@ -1233,6 +1233,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "scale-info",
+ "sp-consensus-aura",
  "sp-core",
  "sp-io",
  "sp-runtime",
