@@ -1,0 +1,64 @@
+services:
+  alice:
+    build: ./
+    command: >
+      /aya/target/release/aya-node --dev --tmp --alice --port 30333 --rpc-port 9944
+      --unsafe-rpc-external
+      --rpc-cors all --validator
+    
+    ports:
+      - "30333:30333"
+   
+      - "9944:9944"
+    networks:
+      - aya_network
+
+  bob:
+    build: ./
+    environment:
+      - NODE_KEY=${NODE_KEY}
+      - ALICE_IP=${ALICE_IP}
+    command: >
+      /aya/target/release/aya-node --dev --tmp --bob --port 30334 --rpc-port 9946
+      --unsafe-rpc-external
+      --rpc-cors all --validator --bootnodes /ip4/${ALICE_IP}/tcp/30333/p2p/${NODE_KEY}
+    depends_on:
+      - alice
+    networks:
+      - aya_network
+    ports:
+      - "30334:30334"
+   
+      - "9946:9946"
+
+  
+
+  scrolls:
+    image: ghcr.io/txpipe/scrolls:0.6.0-alpha.0
+    command: ["daemon"]
+    environment:
+      - RUST_LOG=info
+    volumes:
+      - ./scrolls:/etc/scrolls/ 
+    ports:
+      - "9615:9615"
+    networks:
+      - aya_network
+    depends_on:
+      - redis 
+
+  redis:
+    image: redis:latest
+    environment:
+      - REDIS_PASSWORD=example_password
+    volumes:
+      - ./data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - aya_network
+
+networks:
+  aya_network:
+    driver: bridge
+

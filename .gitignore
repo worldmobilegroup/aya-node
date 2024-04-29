@@ -1,5 +1,5 @@
 # Substrate .gitignore
-
+data
 # Rust build artifacts
 /target/
 **/*.rs.bk

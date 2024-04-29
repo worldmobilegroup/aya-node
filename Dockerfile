@@ -1,6 +1,3 @@
-# Note: This is currently designed to simplify development
-# To get a smaller docker image, there should be 2 images generated, in 2 stages.
-
 FROM rustlang/rust:nightly
 
 
@@ -13,7 +10,7 @@ RUN apt-get update -y && \
 
 # Install rust wasm. Needed for substrate wasm engine
 RUN rustup target add wasm32-unknown-unknown
-
+RUN rustup component add rust-src --toolchain nightly-aarch64-unknown-linux-gnu
 # Download Frontier repo
 RUN git clone https://github.com/worldmobilegroup/aya-node /aya
 RUN cd /aya && git submodule init && git submodule update
@@ -21,7 +18,7 @@ RUN cd /aya && git submodule init && git submodule update
 # Download rust dependencies and build the rust binary
 RUN cargo build "--$PROFILE"
 
-# 30333 for p2p traffic
+# 303033 for p2p traffic
 # 9933 for RPC call
 # 9944 for Websocket
 # 9615 for Prometheus (metrics)
