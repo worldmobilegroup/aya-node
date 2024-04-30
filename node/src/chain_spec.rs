@@ -1,12 +1,14 @@
-use std::{collections::BTreeMap, str::FromStr};
+use std::collections::BTreeMap;
 
+use fp_evm::GenesisAccount;
 use hex_literal::hex;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 // Substrate
 use sc_chain_spec::{ChainType, Properties};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::{H160, Pair, Public, U256};
+use sp_core::{H160, Pair, Public};
+use sp_core::crypto::Ss58Codec;
 #[allow(unused_imports)]
 use sp_core::ecdsa;
 use sp_runtime::traits::{IdentifyAccount, Verify};
@@ -54,7 +56,10 @@ fn session_keys(aura: AuraId, grandpa: GrandpaId, im_online: ImOnlineId) -> Sess
     }
 }
 
-pub fn authority_keys_from_seed(s: &str, a: AccountId) -> (AccountId, AuraId, GrandpaId, ImOnlineId) {
+pub fn authority_keys_from_seed(
+    s: &str,
+    a: AccountId,
+) -> (AccountId, AuraId, GrandpaId, ImOnlineId) {
     (
         a,
         get_from_seed::<AuraId>(s),
@@ -140,6 +145,45 @@ pub fn local_testnet_config() -> ChainSpec {
         .build()
 }
 
+pub fn devnet_config() -> ChainSpec {
+    ChainSpec::builder(WASM_BINARY.expect("WASM not available"), Default::default())
+        .with_name("Devnet")
+        .with_id("aya_devnet")
+        .with_chain_type(ChainType::Live)
+        .with_properties(properties())
+        .with_genesis_config_patch(testnet_genesis(
+            // Sudo account (Frigga)
+            AccountId::from(hex!("be2b160c405f48C966D500D51825Ca7C3b895115")),
+            // Pre-funded accounts
+            vec![
+                AccountId::from(hex!("be2b160c405f48C966D500D51825Ca7C3b895115")), // Frigga
+                AccountId::from(hex!("bDEfFf4E3c33130f712b8ade58a9a2ec6508F87a")), // Ullr
+                AccountId::from(hex!("34a2a056E8D76c237f614498A7d4A4b66bb07a05")), // Freyr
+                AccountId::from(hex!("e89784D78F3F7d6d9aD117952eBC0946e661E7dF")), // Tyr
+                AccountId::from(hex!("9c33Afb3f5Fbf26b0Ee239dD409971c199558E5a")), // Vidarr
+                AccountId::from(hex!("90df1a639bfF37D23a240bEc0BBA19585D74956D")), // Baldr
+            ],
+            vec![
+                (
+                    AccountId::from(hex!("be2b160c405f48C966D500D51825Ca7C3b895115")),
+                    AuraId::from_ss58check("5DLejswkk5ZkYCadBbbeHjYS1pEkHBSmtGnbQ5mF8TVctG6R").unwrap(),
+                    GrandpaId::from_ss58check("5E8oFZ6d5JexFBA573hKYsJnspZ8CJFYTKjWE5194eAMMgSQ").unwrap(),
+                    ImOnlineId::from_ss58check("5DLejswkk5ZkYCadBbbeHjYS1pEkHBSmtGnbQ5mF8TVctG6R").unwrap(),
+                ),
+                (
+                    AccountId::from(hex!("bDEfFf4E3c33130f712b8ade58a9a2ec6508F87a")),
+                    AuraId::from_ss58check("5HWgpxBm7jY8GKFabTnBhdHbBPkucMPDNpHyTRHzCZYPUd2z").unwrap(),
+                    GrandpaId::from_ss58check("5DrCBGSzmUexKxc1DPitNF7uChZdHJZdZER6a5nxRrvmzeDx").unwrap(),
+                    ImOnlineId::from_ss58check("5HWgpxBm7jY8GKFabTnBhdHbBPkucMPDNpHyTRHzCZYPUd2z").unwrap(),
+                ),
+            ],
+            1357,
+            false,
+        ))
+        .with_protocol_id(PROTOCOL_ID)
+        .build()
+}
+
 /// Configure initial storage state for FRAME modules.
 fn testnet_genesis(
     sudo_key: AccountId,
@@ -149,46 +193,18 @@ fn testnet_genesis(
     enable_manual_seal: bool,
 ) -> serde_json::Value {
     let evm_accounts = {
-        let mut map = BTreeMap::new();
-        map.insert(
-            // H160 address of Alice dev account
-            // Derived from SS58 (42 prefix) address
-            // SS58: 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY
-            // hex: 0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d
-            // Using the full hex key, truncating to the first 20 bytes (the first 40 hex chars)
-            H160::from_str("d43593c715fdd31c61141abd04a99fd6822c8558")
-                .expect("internal H160 is valid; qed"),
-            fp_evm::GenesisAccount {
-                balance: U256::from_str("0xffffffffffffffffffffffffffffffff")
-                    .expect("internal U256 is valid; qed"),
-                code: Default::default(),
-                nonce: Default::default(),
-                storage: Default::default(),
-            },
-        );
-        map.insert(
-            // H160 address of CI test runner account
-            H160::from_str("6be02d1d3665660d22ff9624b7be0551ee1ac91b")
-                .expect("internal H160 is valid; qed"),
-            fp_evm::GenesisAccount {
-                balance: U256::from_str("0xffffffffffffffffffffffffffffffff")
-                    .expect("internal U256 is valid; qed"),
-                code: Default::default(),
-                nonce: Default::default(),
-                storage: Default::default(),
-            },
-        );
-        map.insert(
-            // H160 address for benchmark usage
-            H160::from_str("1000000000000000000000000000000000000001")
-                .expect("internal H160 is valid; qed"),
-            fp_evm::GenesisAccount {
-                nonce: U256::from(1),
-                balance: U256::from(1_000_000_000_000_000_000_000_000u128),
-                storage: Default::default(),
-                code: vec![0x00],
-            },
-        );
+        let mut map: BTreeMap<H160, GenesisAccount> = BTreeMap::new();
+        // map.insert(
+        //     // H160 address for benchmark usage
+        //     H160::from_str("1000000000000000000000000000000000000001")
+        //         .expect("internal H160 is valid; qed"),
+        //     fp_evm::GenesisAccount {
+        //         nonce: U256::from(1),
+        //         balance: U256::from(1_000_000_000_000_000_000_000_000u128),
+        //         storage: Default::default(),
+        //         code: vec![0x00],
+        //     },
+        // );
         map
     };
 
