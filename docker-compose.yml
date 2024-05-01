@@ -31,33 +31,20 @@ services:
    
       - "9946:9946"
 
-  
-
   scrolls:
-    image: ghcr.io/txpipe/scrolls:0.6.0-alpha.0
-    command: ["daemon"]
+    build:
+      context: ../chain-follower
+      dockerfile: Dockerfile
+    command: ["/usr/bin/daemon", "--config", "/app/daemon.toml"]
     environment:
       - RUST_LOG=info
     volumes:
-      - ./scrolls:/etc/scrolls/ 
+      - ./daemon.toml:/app/daemon.toml  # Make sure the path is correct relative to the docker-compose.yml
     ports:
       - "9615:9615"
     networks:
       - aya_network
-    depends_on:
-      - redis 
-
-  redis:
-    image: redis:latest
-    environment:
-      - REDIS_PASSWORD=example_password
-    volumes:
-      - ./data:/data
-    ports:
-      - "6379:6379"
-    networks:
-      - aya_network
-
+    
 networks:
   aya_network:
     driver: bridge
