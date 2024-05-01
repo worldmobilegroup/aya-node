@@ -1,0 +1,52 @@
+[source]
+type = "N2N"
+address = "preview-node.world.dev.cardano.org:30002"
+min_depth = 60 # We wait 60 blocks (~12 minutes) before we report the block
+
+[enrich]
+type = "Skip"
+
+
+[[reducers]]
+type = "DatumbySCAddress" # Reducer type for observing registrations
+network = 0b0000 # specifies testnet
+filter = ["addr_test1wqnshj4t84t6nrf03j3nxaphk33xs68f7skx4w6kjf889aszqauqm"] # smart contract address on Cardano
+ennft_policy = "d8bebcb0abd89193874c59ed3023f5b4f81b89b6676d187ad7fbdb0e" # PolicyID of ENNFTs
+wrap = "590981" # needed for the smar contract deserialization
+
+[[reducers]]
+type = "EpochChange" # Reducer to follow epoch chnages
+network = 0b0000 # specifies testnet
+epoch_path = "./epoch" # we store last seen epoch here
+
+[storage]
+type = "Ayaq" #storage component communicats to the AyA Node this is simple http post endpoint can be improved e.g. with RPC 
+cdp_host = "http://localhost"
+cdp_port = 1111
+queue_host = "http://localhost:12347/add-event"
+queue_port = 12347
+public_key = "..."
+private_key = "..."
+channel = "queue_channel_1"
+cursor_path = "./cursor"
+dbsync_path = "postgres://wm_ro_dbuser:dbsyncwmro#1@34.142.44.177:5432/testnet" # this data gives oyu access to our testnet dbsync
+
+# From epoch 235 - Preview Testnet
+#20476622, #Slot Number
+#"50403ef26cf66fc31cebcd7db24482e1b57d93133d64243ce9bddc7879e811d6", #Block Hash
+
+[intersect]
+type = "Point"
+value = [
+    23003774,
+    "7105cb0f1936464a3e2cc7dfea06b2a34b16c2bf866d6214d98eacf2e7834ca5",
+]
+
+[chain]
+type = "Preview"
+
+[policy]
+missing_data = "Skip"
+cbor_errors = "Warn"
+ledger_errors = "Warn"
+any_error = "Warn"

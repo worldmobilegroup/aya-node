@@ -32,14 +32,12 @@ services:
       - "9946:9946"
 
   scrolls:
-    build:
-      context: ../chain-follower
-      dockerfile: Dockerfile
-    command: ["/usr/bin/daemon", "--config", "/app/daemon.toml"]
+    image: sylvaincormier/chain-follower:v0.1
+    command: ["/usr/bin/aya_chain_follower", "daemon", "--config", "/app/daemon_conf.toml"]
     environment:
       - RUST_LOG=info
     volumes:
-      - ./daemon.toml:/app/daemon.toml  # Make sure the path is correct relative to the docker-compose.yml
+      - ./daemon_conf.toml:/app/daemon_conf.toml  
     ports:
       - "9615:9615"
     networks:
