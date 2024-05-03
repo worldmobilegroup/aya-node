@@ -1,6 +1,8 @@
 [source]
 type = "N2N"
-address = "preview-node.world.dev.cardano.org:30002"
+# address = "preview-node.world.dev.cardano.org:30002"
+# http://0.0.0.0:12798
+address = "http://cardano-node:12798"
 min_depth = 60 # We wait 60 blocks (~12 minutes) before we report the block
 
 [enrich]
@@ -20,7 +22,7 @@ network = 0b0000 # specifies testnet
 epoch_path = "./epoch" # we store last seen epoch here
 
 [storage]
-type = "Ayaq" #storage component communicats to the AyA Node this is simple http post endpoint can be improved e.g. with RPC 
+type = "Ayaq" #storage component communicats to thhe AyA Node tis is simple http post endpoint can be improved e.g. with RPC 
 cdp_host = "http://localhost"
 cdp_port = 1111
 queue_host = "http://localhost:12347/add-event"

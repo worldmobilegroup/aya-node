@@ -40,10 +40,51 @@ services:
       - ./daemon_conf.toml:/app/daemon_conf.toml  
     ports:
       - "9615:9615"
+      - "12347:12347"
+      - "4123:4123"
+    restart: unless-stopped
     networks:
       - aya_network
+  
+
+  cardano-node:
+    image: cardanocommunity/cardano-node
+    environment:
+      - NETWORK=mainnet  # Change to testnet if applicable
+    volumes:
+      - ./data/cardano-node/db:/data/db
+      - ./data/cardano-node/socket:/data/socket
+      - ../cardano-node/configuration:/config  # Adjust this path according to where your config files are stored
+    ports:
+      - "3001:3001"
+      - "12798:12798"  
+    networks:
+      - aya_network
+    command: >
+      cardano-node run
+      --config /config/mainnet-config.json  # Adjust the config filename as necessary
+      --topology /config/mainnet-topology.json  # Adjust the topology filename as necessary
+      --database-path /data/db
+      --socket-path /data/socket/node.socket
+      --host-addr 0.0.0.0
+      --port 3001
+
+  
+
+
     
+
 networks:
   aya_network:
     driver: bridge
+    # ipam:
+    #   config:
+    #     - subnet: 172.20.0.0/16
+    # driver_opts:
+    #   com.docker.network.bridge.default_bridge: "true"
+    #   com.docker.network.bridge.enable_icc: "true"
+    #   com.docker.network.bridge.enable_ip_masquerade: "true"
+    # options:
+    #   com.docker.network.bridge.name: "docker1"
+
 

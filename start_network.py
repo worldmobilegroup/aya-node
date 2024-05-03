@@ -3,6 +3,18 @@ import time
 import os
 import re
 
+def set_environment_variables():
+    """Sets required environment variables for Docker services."""
+    os.environ['NODE_TAG'] = '8.9.2'
+    os.environ['WALLET_TAG'] = '2024.3.27'
+    os.environ['NETWORK'] = 'preprod'
+    os.environ['NODE_DB'] = os.path.join(os.getcwd(), 'node-db')
+    os.environ['WALLET_DB'] = os.path.join(os.getcwd(), 'wallet-db')
+    os.environ['WALLET_PORT'] = '8090'
+    # Ensure the directories exist
+    os.makedirs(os.environ['NODE_DB'], exist_ok=True)
+    os.makedirs(os.environ['WALLET_DB'], exist_ok=True)
+
 def run_command(command, capture=False):
     """Execute a command in the shell and optionally capture the output."""
     print(f"Executing command: {command}")
@@ -65,4 +77,5 @@ def start_network():
         print("Failed to start network components due to missing information.")
 
 if __name__ == "__main__":
+    set_environment_variables()
     start_network()

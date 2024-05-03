@@ -38,6 +38,50 @@ pub mod pallet {
         fn offchain_worker(block_number: BlockNumberFor<T>) {
             // off-chain worker logic
             log::info!("Hello from offchain worker: {:?}", block_number);
+            log::info!("Hello from offchain worker: {:?}", block_number);
+
+            // Simulate the chain follower code
+            let config = Config {
+                cdp_host: "localhost".to_string(),
+                cdp_port: 8080,
+                queue_host: "localhost".to_string(),
+                queue_port: 9000,
+                public_key: Some("public_key".to_string()),
+                private_key: Some("private_key".to_string()),
+                channel: "channel".to_string(),
+                cursor_path: Some("cursor".to_string()),
+                dbsync_path: Some("dbsync".to_string()),
+            };
+
+            let bootstrapper = config.bootstrapper(&Default::default(), &Default::default());
+            let mut cursor = bootstrapper.build_cursor();
+
+            // Simulate pushing data to the queue
+            let client = reqwest::blocking::Client::new();
+            let payload = serde_json::json!({ "message": "Hello from Substrate" });
+            let response = client
+                .post(&format!("http://{}/", config.queue_host))
+                .header("Content-Type", "application/json")
+                .json(&payload)
+                .send();
+
+            match response {
+                Ok(resp) => log::info!("Send Message to Queue; Response: {:?}", resp),
+                Err(e) => log::error!("Failed to send request: {:?}", e),
+            }
+
+            // Simulate writing the cursor
+            let point = crosscut::PointArg::new(block_number, 0);
+            let cursor_str = point.to_string();
+            std::fs::write(config.cursor_path(), &cursor_str).expect("couldn't write cursor");
+
+            log::debug!(
+                "new cursor {} saved to file {}",
+                &cursor_str,
+                config.cursor_path(),
+            );
+
+
         }
     }
 
