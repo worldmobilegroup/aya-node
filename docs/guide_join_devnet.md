@@ -183,8 +183,8 @@ When you use a derived address, make sure you are able to restore the address in
 
 To setup the validator we need to add the secret keys to the keyring on the validator machine. On the machine running the validator, navigate to the `aya-node` repository folder.
 
-We need to add three keys: the Aura, Grandpa and Im-Online key. Depending on the derivation path in the mnemonic the, secret seeds of the ed25519 and sr25519 scheme might differ! The AURA_KEY and IM_ONLINE_KEY is the sr25519 secret seed, the GRANDPA_KEY is the ed25519 secret seed. In this example the secret seeds are the same as we did not derived an account. 
-You also need to set the base path of the node, the path were all data for the node is stored. We use "data/validator" make sure the path is accessible. 
+We need to add three keys: the AURA_KEY, GRANDPA_KEY and Im-IM_ONLINE_KEY key. Depending on the derivation path in the mnemonic the, secret seeds of the ed25519 and sr25519 scheme might differ! The AURA_KEY and IM_ONLINE_KEY is the same sr25519 secret seed, the GRANDPA_KEY is the ed25519 secret seed. In this example the secret seeds are all the same because we did not derived an account. 
+You also need to set the base path of the node, the path were all data for the node is stored. We use `data/validator` make sure the path is accessible. 
 
 Optional - Set keys to environment variables or enter directly at the `--suri` parameter:
 ```bash
@@ -229,7 +229,7 @@ We want that our validator starts automatically with the server and is restarted
 
 First we create a startup script for the AyA-Node.
 
-Make sure the path to the aya-node binary is correct in the command below. It is expected you cloned and compiled the repository on the validator machine in your users home folder. In this case the aya-node would be located in "/home/myuser/aya-node/target/release".
+Make sure the path to the aya-node binary is correct in the command below. It is expected you cloned and compiled the repository on the validator machine in your users home folder. In this case the aya-node would be located in `/home/myuser/aya-node/target/release`.
 
 Set AyA Home Path to the folder were your aya-node binary is located: 
 
@@ -264,16 +264,16 @@ Let us test that the validator starts by executing the script we just created
 
 The validator should start syncing, if there is a problem check the path to the `aya-node` binary and the `wm-devnet-chainspec.json`.
 
-Stop the aya-node again by hitting Ctrl+C.
+Stop the aya-node again by pressing Ctrl+C.
 
-### Creating systemd service
+### Creat systemd service
 Next we create the systemd service:
 
 ```bash
 sudo nano /etc/systemd/system/aya-node.service
 ```
 
-Copy the following content to the file and make sure to adjust the PATH to the file `start_aya_validator.sh` we have created in the last step.
+Copy the following content to the file and make sure to adjust the `/PATH/TO/` the file `start_aya_validator.sh` we created in the last step.
 ```
 [Unit]
 Description=AyA Node
@@ -354,9 +354,9 @@ Example Output:
 0x04423b6990fa0a0c87b362d5d43411faefb8a54f0dfe5db10a90dd357d27d459aa1c76e6239a4bda1c3b07ea5785cad3e42e48dd8d2b89403dfa894aff6060e208adcf5c46ac4aab449a35ed71be861bd1242fedab04073f7d686fc138b59252
 ```
 
-The output contains the AURA, GRANDPA and IMONLINE public keys in one large string, we need to splitt the string up. Each key has 32 bytes, the string is hex encoded so each key has 64 characters. Each of the keys needs a prefix '0x' to indecate it is hex encoded. The output starts already with '0x' so the first key starts behind the '0x' and is 64 characters long. The second key starts at the 65 character, it has no '0x' prependet yet so we do that. The next key starts a character 130 and also needs a '0x' prefix. All keys should have the same length (32byte or 64 characters) and have a 0x prepended. 
+The output contains the AURA, GRANDPA and IMONLINE public keys in one large string, we need to splitt the string up. Each key has 32 bytes, the string is hex encoded so each key has 64 characters. Each of the keys needs a prefix '0x' to indecate it is hex encoded. The output starts already with '0x' so the first key starts behind the '0x' and is 64 characters long. The second key starts at the 65 character, it has no '0x' prependet yet so we do that. The next key starts at character 130 and also needs a '0x' prefix. All keys should have the same length (32byte or 64 characters) and have a 0x prepended. 
 
-Tip: Copy one of the exampel keys below to a text file. Copy the Output string in the line below. Now you see where you need to split the string. Hit enter, prefix it with `0x`, repeat.
+Tip: Copy one of the exampel keys below to a text file. Copy the output string to the line below. Now you see where you need to split the string. Hit enter, prefix it with `0x`, repeat.
  
 
 Example: 
@@ -366,7 +366,7 @@ Example:
 0x08adcf5c46ac4aab449a35ed71be861bd1242fedab04073f7d686fc138b59252 = ImOnline Key
 ```
 
-Put this key aside you will need them in the next step. 
+Put the keys aside, you will need them in the next step. 
 
 
 ## Connect to Polkadot-JS Development Front-End
@@ -383,12 +383,12 @@ Now you should be able to connect to the RPC endpoint of the public node:
 In the next step we want to add our validator account to a wallet and connect with the development frontend. You can use another account as the one generated before to register the session keys but you need to set the session keys which belong to the validator.
 
 Please follow the instructions in the [Custom Account Guide](https://github.com/worldmobilegroup/aya-node/blob/main/docs/guide_custom_account.md) to install Talisman. 
-Than use the mnemonic generated earlier for your validator to restore the wallet in Talisman. 
+Than use the mnemonic generated earlier for your validator to restore the wallet in Talisman (or use another wallet). 
 
 Add the following Network to Talisman (Polkadot):
 ![AyA-DevNet RPC Endpoint](assets/talisman_aya_devnet.png)
 
-Refresh the Polkadot-JS development front-end, connect the new wallet in Talisman to the Polkadot-JS front end, you should see your account now and if the setup of the RPC endpoint worked correctly you are able to sign and submit transactions with that account.
+Refresh the Polkadot-JS development front-end, then connect the new wallet in Talisman to the Polkadot-JS front end. You should see your account now and if the setup of the RPC endpoint worked correctly you are able to sign and submit transactions with that account.
 
 ### Get FERN
 You need to get some FERN tokens from the faucet to pay for transaction fees. 
@@ -403,23 +403,35 @@ If you do not provide ImOnline messages during an epoch you are getting kicked t
 ### Submit Session Keys
 To submit the session keys you obtained in the step before you need a working Polkadot-JS front-end and your account needs to have funds to pay for transaction fees. The wallet registering the session keys does not need to be the one generated for the validator, but the session keys must match! Only you (the operator) should know your session keys when you triggered a rotation and only you should be able to rotate session keys. It is not possible to register the same session keys twice.
 
-Go to the [Front-End](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2F35.189.75.1%3A#/explorer) and navigate to Developer -> Extrinsics.
+Go to the [Front-End](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2F35.189.75.1%3A#/explorer) and navigate to `Developer -> Extrinsics`.
 ![DeveloperExtrinsic](assets/sessionKeys_developerExtrinsic.png)
 
-Select the validator account you imported into Talisman before. 
+Select the validator account you imported into Talisman before.
+
 Select the `session` pallet from the extrinsic category pull down menu. 
+
 Select `setKeys(keys,proof)` from the function selector pull down menu.
+
 Insert the Aura-Key into the first field
+
 Insert the Grandpa-Key into the second field. 
+
 Insert the ImOnline-Key into the third field. 
+
 For the proof enter `0x`
 
 ![sessionkeys_setkeys](assets/sessionkeys_setKeys.png)
 
-Submit the transaction and sign with your wallet. 
+Submit the transaction and sign with your wallet.
+
 If the transaction was submitted sucessfully you can check that your keys have been set:
-Go to: Developers -> Chain State 
-Select the `session` pallet in the state query, select the function `nextKeys(AccountId20):Option<AyaRuntimeOpaqueSessionKeys>`.
+
+Go to: `Developer -> Chain State`
+
+Select the `session` pallet in the state query. 
+
+Select the function `nextKeys(AccountId20):Option<AyaRuntimeOpaqueSessionKeys>`.
+
 Select your Account and submit the request by clicking on the `+`.
 
 Example Output: 
@@ -433,9 +445,9 @@ Example Output:
 
 ### Register Validator
 
-You have done all it needs, the only thing left is to let us know about your validator. Go to this [Form]() and fill the information. We check twice a day (mornings and evenings CET) for new validators and add them to the authority set. It takes two epochs until your validator joins the active authority set, an epoch is 24 hours so it can take 3 to 4 days before your validator becomes active. 
+You have done all it needs, the only thing left is to let us know about your validator. Go to this [Form]() and fill the information. We check twice a day (mornings and evenings in CET) for new validators and add them to the authority set. It takes two epochs until your validator joins the active authority set, an epoch is 24 hours so it can take 3 to 4 days before your validator becomes active. 
 
 # Securing my Validator
-We have setup a plain validator in the previous steps and connected it directly to the network. It is better to have the validator behind a full node (or two) which is exposed to the public, but our validator should only connect to that full node and not allow connections from the outside. 
+We have setup a plain validator in this guid and connected it directly to the network. It is better to have the validator behind a full node (or two) which is exposed to the public, but our validator should only connect to that full node and not allow connections from the outside. 
 
-This setup is fairly easy in substrate based chains. You setup a full node which connects to the network in the way described in this guide. The key related steps can be ignored for a full node. When you setup your validator you do not give the public bootnode in the `--bootnodes` parameter but your own full node. With additonal measuremeants (e.g. cloud firewall or ufw) you can limit the connections to your validator. Only the p2p port (default 30333) needs to be open if you want to connect to the validator with another node. For example we could open the port 30333 only for the internal network IP address of our fullnode.
+This setup is fairly easy in substrate based chains. You setup a full node which connects to the network in the way described in this guide. All the key related steps can be ignored for a full node. When you setup your validator you do not give the public bootnode in the `--bootnodes` parameter, but your own full node. With additonal measuremeants (e.g. cloud firewall or ufw) you can limit the connections to your validator. Only the p2p port (default 30333) needs to be open if you want to connect to the validator with another node. For example we could open the port 30333 only for the internal network IP address of our full node.
