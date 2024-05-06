@@ -6,40 +6,12 @@
 #![allow(clippy::new_without_default, clippy::or_fun_call)]
 #![cfg_attr(feature = "runtime-benchmarks", warn(unused_crate_dependencies))]
 
-// Make the WASM binary available.
-#[cfg(feature = "std")]
-include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
-use scale_codec::{Decode, Encode};
-use sp_api::impl_runtime_apis;
-use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_consensus_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
-use sp_core::{
-    crypto::{ByteArray, KeyTypeId},
-    OpaqueMetadata, H160, H256, U256,
-};
-use sp_runtime::{
-    create_runtime_str, generic,
-    generic::Era,
-    impl_opaque_keys,
-    traits::{
-        BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, Get, IdentifyAccount,
-        IdentityLookup, NumberFor, One, OpaqueKeys, PostDispatchInfoOf, UniqueSaturatedInto,
-        Verify,
-    },
-    transaction_validity::{
-        TransactionPriority, TransactionSource, TransactionValidity, TransactionValidityError,
-    },
-    ApplyExtrinsicResult, ConsensusEngineId, ExtrinsicInclusionMode, Perbill, Permill,
-    SaturatedConversion,
-};
-use sp_std::{marker::PhantomData, prelude::*};
-use sp_version::RuntimeVersion;
-use static_assertions::const_assert;
-// Substrate FRAME
-#[cfg(feature = "with-paritydb-weights")]
-use frame_support::weights::constants::ParityDbWeight as RuntimeDbWeight;
-#[cfg(feature = "with-rocksdb-weights")]
-use frame_support::weights::constants::RocksDbWeight as RuntimeDbWeight;
+#[cfg(feature = "runtime-benchmarks")]
+#[macro_use]
+extern crate frame_benchmarking;// Frontier
+use fp_account::EthereumSignature;
+use fp_evm::weight_per_gas;
+use fp_rpc::TransactionStatus;
 use frame_support::{
     derive_impl,
     dynamic_params::dynamic_pallet_params,
@@ -56,12 +28,15 @@ use frame_support::{
         IdentityFee, Weight,
     },
 };
+// Substrate FRAME
+#[cfg(feature = "with-paritydb-weights")]
+use frame_support::weights::constants::ParityDbWeight as RuntimeDbWeight;
+#[cfg(feature = "with-rocksdb-weights")]
+use frame_support::weights::constants::RocksDbWeight as RuntimeDbWeight;
 use frame_system::{EnsureRoot, EnsureSigned};
-use pallet_transaction_payment::{ConstFeeMultiplier, CurrencyAdapter};
-// Frontier
-use fp_account::EthereumSignature;
-use fp_evm::weight_per_gas;
-use fp_rpc::TransactionStatus;
+// A few exports that help ease life for downstream crates.
+pub use frame_system::Call as SystemCall;
+pub use pallet_balances::Call as BalancesCall;
 use pallet_ethereum::{
     Call::transact, PostLogContent, Transaction as EthereumTransaction, TransactionAction,
     TransactionData,
@@ -70,19 +45,45 @@ use pallet_evm::{
     Account as EVMAccount, EnsureAccountId20, FeeCalculator, IdentityAddressMapping, Runner,
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-
-// A few exports that help ease life for downstream crates.
-pub use frame_system::Call as SystemCall;
-pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
+use pallet_transaction_payment::{ConstFeeMultiplier, CurrencyAdapter};
 use pallet_transaction_payment::Multiplier;
+use scale_codec::{Decode, Encode};
+use sp_api::impl_runtime_apis;
+use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_consensus_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
+use sp_core::{
+    crypto::{ByteArray, KeyTypeId},
+    H160, H256, OpaqueMetadata, U256,
+};
+use sp_runtime::{
+    ApplyExtrinsicResult, ConsensusEngineId,
+    create_runtime_str,
+    ExtrinsicInclusionMode,
+    generic,
+    generic::Era,
+    impl_opaque_keys, Perbill, Permill, SaturatedConversion, traits::{
+        BlakeTwo256, Block as BlockT, Dispatchable, DispatchInfoOf, Get, IdentifyAccount,
+        IdentityLookup, NumberFor, One, OpaqueKeys, PostDispatchInfoOf, UniqueSaturatedInto,
+        Verify,
+    },
+    transaction_validity::{
+        TransactionPriority, TransactionSource, TransactionValidity, TransactionValidityError,
+    },
+};
+use sp_std::{marker::PhantomData, prelude::*};
+use sp_version::RuntimeVersion;
+use static_assertions::const_assert;
 
+use precompiles::FrontierPrecompiles;
+
+// Make the WASM binary available.
+#[cfg(feature = "std")]
+include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 mod precompiles;
 
 /// Runtime API definition for assets.
 pub mod assets_api;
-
-use precompiles::FrontierPrecompiles;
 
 /// Type of block number.
 pub type BlockNumber = u32;
@@ -118,9 +119,9 @@ pub type DigestItem = generic::DigestItem;
 /// of data like extrinsics, allowing for them to continue syncing the network through upgrades
 /// to even the core data structures.
 pub mod opaque {
-    use super::*;
-
     pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
+
+    use super::*;
 
     /// Opaque block header type.
     pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
@@ -329,7 +330,7 @@ impl substrate_validator_set::Config for Runtime {
 }
 
 parameter_types! {
-    pub const Period: u32 = 2 * MINUTES;
+    pub const Period: u32 = 1 * DAYS;
     pub const Offset: u32 = 0;
 }
 
@@ -731,8 +732,9 @@ impl pallet_parameters::Config for Runtime {
 
 #[frame_support::pallet]
 pub mod pallet_manual_seal {
-    use super::*;
     use frame_support::pallet_prelude::*;
+
+    use super::*;
 
     #[pallet::pallet]
     pub struct Pallet<T>(PhantomData<T>);
@@ -933,10 +935,6 @@ impl fp_self_contained::SelfContainedCall for RuntimeCall {
         }
     }
 }
-
-#[cfg(feature = "runtime-benchmarks")]
-#[macro_use]
-extern crate frame_benchmarking;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benches {
@@ -1464,6 +1462,7 @@ pub mod dynamic_params {
 #[cfg(test)]
 mod tests {
     use super::{Runtime, WeightPerGas};
+
     #[test]
     fn configured_base_extrinsic_weight_is_evm_compatible() {
         let min_ethereum_transaction_weight = WeightPerGas::get() * 21_000;
