@@ -20,6 +20,7 @@ use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::Block as BlockT;
+use crate::rpc::cardano_follower::{CardanoFollowerRpc, CardanoFollowerRpcImpl};
 // Runtime
 use aya_runtime::{opaque::Block, AccountId, Balance, Hash, Nonce};
 
@@ -63,6 +64,7 @@ pub fn create_full<C, P, BE, A, CT, CIDP>(
 	>,
 ) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
 where
+	C: ProvideRuntimeApi<Block> + BlockchainEvents<Block> + 'static,
 	C: CallApiAt<Block> + ProvideRuntimeApi<Block>,
 	C::Api: sp_block_builder::BlockBuilder<Block>,
 	C::Api: sp_consensus_aura::AuraApi<Block, AuraId>,
@@ -109,6 +111,12 @@ where
 		subscription_task_executor,
 		pubsub_notification_sinks,
 	)?;
+	let mut io = RpcModule::new(());
+    let cardano_rpc = CardanoFollowerRpcImpl {
+		client: deps.client.clone(),
+    };
+
+    io.merge(cardano_rpc.to_delegate())?;
 
 	Ok(io)
 }
