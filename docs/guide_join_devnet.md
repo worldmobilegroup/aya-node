@@ -448,10 +448,10 @@ Example Output:
 You have done all it needs, the only thing left is to let us know about your validator. Go to this [Form](https://forms.gle/RXjEqJuRGp9AwwBe9) and fill the information. We check twice a day (mornings and evenings in CET) for new validators and add them to the authority set. It takes two epochs until your validator joins the active authority set, an epoch is 24 hours so it can take 3 to 4 days before your validator becomes active. 
 
 To fill the form you will need:
--[ ] the fingerprint of you ENNFT on Cardano mainnet
--[ ] The address you used to register you session keys
--[ ] Your valid email address
--[ ] Your discord usernmae
+- the fingerprint of you ENNFT on Cardano mainnet
+- the address you used to register you session keys
+- your valid email address
+- your discord usernmae
 
 
 # Securing my Validator
