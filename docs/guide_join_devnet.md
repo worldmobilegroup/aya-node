@@ -20,7 +20,7 @@ Install dependencies:
 
 ```bash
 sudo apt update
-sudo apt install -y git clang curl libssl-dev llvm libudev-dev make protobuf-compiler pkg-config build-essentials
+sudo apt install -y git clang curl libssl-dev llvm libudev-dev make protobuf-compiler pkg-config build-essential
 ```
 
 Install Rust: 
@@ -455,6 +455,9 @@ To fill the form you will need:
 
 
 # Securing my Validator
-We have setup a plain validator in this guid and connected it directly to the network. It is better to have the validator behind a full node (or two) which is exposed to the public, but our validator should only connect to that full node and not allow connections from the outside. 
+
+We have setup a plain validator in this guide and connected it directly to the network. It is better to have the
+validator behind a full node (or two) which is exposed to the public, but our validator should only connect to that full
+node and not allow connections from the outside.
 
 This setup is fairly easy in substrate based chains. You setup a full node which connects to the network in the way described in this guide. All the key related steps can be ignored for a full node. When you setup your validator you do not give the public bootnode in the `--bootnodes` parameter, but your own full node. With additonal measuremeants (e.g. cloud firewall or ufw) you can limit the connections to your validator. Only the p2p port (default 30333) needs to be open if you want to connect to the validator with another node. For example we could open the port 30333 only for the internal network IP address of our full node.
