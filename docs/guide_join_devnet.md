@@ -371,19 +371,21 @@ Put the keys aside, you will need them in the next step.
 
 ## Connect to Polkadot-JS Development Front-End
 
-### Connect to Public Remote Note
-You can connect to a Polkadot-JS Front-End using our public remote node, be aware that the node uses a self-signed SSL certificate which you need to accept in order to use it. 
-Accept the risk on this endpoint: [Link](https://35.189.75.1/)
-After accepting you should see `Used HTTP Method is not allowed. POST or OPTIONS is required` on a blank page.
+### Access the Front-End
 
-Now you should be able to connect to the RPC endpoint of the public node: 
-[Front-End](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2F35.189.75.1%3A#/explorer)
+[Front-End](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fdevnet-rpc.worldmobilelabs.com%3A#/explorer)
 
 ### Setup Wallet and Restore Validator Account in Talisman
 In the next step we want to add our validator account to a wallet and connect with the development frontend. You can use another account as the one generated before to register the session keys but you need to set the session keys which belong to the validator.
 
 Please follow the instructions in the [Custom Account Guide](https://github.com/worldmobilegroup/aya-node/blob/main/docs/guide_custom_account.md) to install Talisman. 
 Than use the mnemonic generated earlier for your validator to restore the wallet in Talisman (or use another wallet). 
+
+DevNet Public RPC Endpoint: devnet-rpc.worldmobilelabs.com
+
+It is possible to connect via https:// (ethereum rpc endpoints) or websocket wss:// (Substrate/Polkadot rpc endpoints).
+You need to add the network as well as ethereum network as well as polkadot network. 
+Polkadot-js front-end will use the websocket whereas the wallet will use the other. 
 
 Add the following Network to Talisman (Polkadot):
 ![AyA-DevNet RPC Endpoint](assets/talisman_aya_devnet.png)
@@ -392,7 +394,7 @@ Refresh the Polkadot-JS development front-end, then connect the new wallet in Ta
 
 ### Get FERN
 You need to get some FERN tokens from the faucet to pay for transaction fees. 
-
+Go to the [faucet](https://devnet-faucet.worldmobilelabs.com/) and request some. 
 
 
 ## Become a Validator
@@ -403,7 +405,7 @@ If you do not provide ImOnline messages during an epoch you are getting kicked t
 ### Submit Session Keys
 To submit the session keys you obtained in the step before you need a working Polkadot-JS front-end and your account needs to have funds to pay for transaction fees. The wallet registering the session keys does not need to be the one generated for the validator, but the session keys must match! Only you (the operator) should know your session keys when you triggered a rotation and only you should be able to rotate session keys. It is not possible to register the same session keys twice.
 
-Go to the [Front-End](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2F35.189.75.1%3A#/explorer) and navigate to `Developer -> Extrinsics`.
+Go to the [Front-End](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fdevnet-rpc.worldmobilelabs.com%3A#/explorer) and navigate to `Developer -> Extrinsics`.
 ![DeveloperExtrinsic](assets/sessionKeys_developerExtrinsic.png)
 
 Select the validator account you imported into Talisman before.
