@@ -445,7 +445,14 @@ Example Output:
 
 ### Register Validator
 
-You have done all it needs, the only thing left is to let us know about your validator. Go to this [Form]() and fill the information. We check twice a day (mornings and evenings in CET) for new validators and add them to the authority set. It takes two epochs until your validator joins the active authority set, an epoch is 24 hours so it can take 3 to 4 days before your validator becomes active. 
+You have done all it needs, the only thing left is to let us know about your validator. Go to this [Form](https://forms.gle/RXjEqJuRGp9AwwBe9) and fill the information. We check twice a day (mornings and evenings in CET) for new validators and add them to the authority set. It takes two epochs until your validator joins the active authority set, an epoch is 24 hours so it can take 3 to 4 days before your validator becomes active. 
+
+To fill the form you will need:
+-[ ] the fingerprint of you ENNFT on Cardano mainnet
+-[ ] The address you used to register you session keys
+-[ ] Your valid email address
+-[ ] Your discord usernmae
+
 
 # Securing my Validator
 We have setup a plain validator in this guid and connected it directly to the network. It is better to have the validator behind a full node (or two) which is exposed to the public, but our validator should only connect to that full node and not allow connections from the outside. 
