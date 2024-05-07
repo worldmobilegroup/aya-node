@@ -15,19 +15,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Frontier
+use fc_db::kv::frontier_database_dir;
 use futures::TryFutureExt;
 // Substrate
 use sc_cli::{ChainSpec, SubstrateCli};
 use sc_service::DatabaseSource;
-// Frontier
-use fc_db::kv::frontier_database_dir;
 
 use crate::{
 	chain_spec,
 	cli::{Cli, Subcommand},
 	service::{self, db_config_dir},
 };
-
 #[cfg(feature = "runtime-benchmarks")]
 use crate::chain_spec::get_account_id_from_seed;
 
@@ -61,6 +60,9 @@ impl SubstrateCli for Cli {
 			"dev" => {
 				let enable_manual_seal = self.sealing.map(|_| true).unwrap_or_default();
 				Box::new(chain_spec::development_config(enable_manual_seal))
+			}
+			"devnet" => {
+				Box::new(chain_spec::devnet_config())
 			}
 			"" | "local" => Box::new(chain_spec::local_testnet_config()),
 			path => Box::new(chain_spec::ChainSpec::from_json_file(
