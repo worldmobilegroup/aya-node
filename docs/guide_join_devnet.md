@@ -253,7 +253,7 @@ echo "${AYA_HOME}/target/release/aya-node \
     --port 30333 \
     --rpc-port 9944 \
     --log info \
-    --bootnodes /ip4/35.189.75.1/tcp/30340/ws/p2p/12D3KooWEb8sRMz6JLzsJedPqvoHV11U2P72htRAiva3LN9GR5V6" >> start_aya_validator.sh
+    --bootnodes /dns/devnet-rpc.worldmobilelabs.com/tcp/30340/ws/p2p/12D3KooWEb8sRMz6JLzsJedPqvoHV11U2P72htRAiva3LN9GR5V6" >> start_aya_validator.sh
 sudo chmod +x ./start_aya_validator.sh
 ```
 
