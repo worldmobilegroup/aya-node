@@ -20,7 +20,7 @@ Install dependencies:
 
 ```bash
 sudo apt update
-sudo apt install -y git clang curl libssl-dev llvm libudev-dev make protobuf-compiler pkg-config
+sudo apt install -y git clang curl libssl-dev llvm libudev-dev make protobuf-compiler pkg-config build-essentials
 ```
 
 Install Rust: 
