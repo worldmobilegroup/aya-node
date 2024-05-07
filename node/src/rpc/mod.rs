@@ -20,7 +20,8 @@ use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::Block as BlockT;
-use crate::rpc::cardano_follower::{CardanoFollowerRpc, CardanoFollowerRpcImpl};
+pub mod cardano_follower;
+pub use self::cardano_follower::{CardanoFollowerRpc, CardanoFollowerRpcImpl};
 // Runtime
 use aya_runtime::{opaque::Block, AccountId, Balance, Hash, Nonce};
 
@@ -94,7 +95,7 @@ where
 	} = deps;
 
 	io.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
-	io.merge(TransactionPayment::new(client).into_rpc())?;
+	io.merge(TransactionPayment::new(client.clone()).into_rpc())?;
 
 	if let Some(command_sink) = command_sink {
 		io.merge(
@@ -111,12 +112,12 @@ where
 		subscription_task_executor,
 		pubsub_notification_sinks,
 	)?;
-	let mut io = RpcModule::new(());
-    let cardano_rpc = CardanoFollowerRpcImpl {
-		client: deps.client.clone(),
-    };
-
-    io.merge(cardano_rpc.to_delegate())?;
+	let cardano_rpc = CardanoFollowerRpcImpl {
+		client: client.clone(),
+	};
+	
+	// io.merge(cardano_rpc.into_rpc())?;
+	
 
 	Ok(io)
 }

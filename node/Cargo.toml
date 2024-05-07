@@ -21,6 +21,13 @@ jsonrpsee = { workspace = true, features = ["server", "macros"] }
 log = { workspace = true }
 scale-codec = { workspace = true }
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
+jsonrpc-core = "18.0.0" # check for the latest or required version
+jsonrpc-derive = "18.0.0"
+serde = { version = "1.0", features = ["derive"] }
+
+jsonrpc-core-client = "18.0.0" 
+
+
 
 # Substrate
 prometheus-endpoint = { workspace = true }
