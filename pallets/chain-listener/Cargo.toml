@@ -22,7 +22,8 @@ log = { workspace = true }
 scale-codec = { workspace = true }
 sp-consensus-aura = { workspace = true }
 sp-std = {workspace = true}
-serde = { workspace = true }	
+serde = { workspace = true }
+serde_json = { workspace = true }	
 [features]
 default = ["std"]
 std = [
@@ -36,6 +37,7 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 	"serde/std",
+	"serde_json/std",
 
 ]
 runtime-benchmarks = [
