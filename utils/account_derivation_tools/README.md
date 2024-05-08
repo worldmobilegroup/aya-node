@@ -1,4 +1,4 @@
-# scripts/prepare-test-net.sh
+# scripts/derive_multi.sh
 
 ## Description
 
@@ -13,7 +13,7 @@ key).
 ## Usage
 
 ```shell
-./scripts/prepare-test-net.sh "bottom drive obey lake curtain smoke basket hold race lonely fit walk"
+./scripts/derive_multi.sh "bottom drive obey lake curtain smoke basket hold race lonely fit walk"
 ```
 
 The seed defaults to "bottom drive obey lake curtain smoke basket hold race lonely fit walk" (local testnet seed to 
@@ -30,7 +30,7 @@ You will get the keys for every config you need to set up:
 ## Example output (default seed for local testnet and only Alice on the config file)
 
 ```shell
-./scripts//prepare-test-net.sh 
+./scripts//derive_multi.sh 
 Processing account: 0 - Alice
 
 sr25519
@@ -125,14 +125,14 @@ export IM_ONLINE_KEY=XXX
     --chain devnet \
     --key-type aura \
     --scheme sr25519 \
-    --suri "${GRANDPA_KEY}";
+    --suri "${AURA_KEY}";
     
 ./target/release/aya-node key insert \
     --base-path data/ullr \
     --chain devnet \
     --key-type gran \
     --scheme ed25519 \
-    --suri "${AURA_KEY}";
+    --suri "${GRANDPA_KEY}";
     
 ./target/release/aya-node key insert \
     --base-path data/ullr \

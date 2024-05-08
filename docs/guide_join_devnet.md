@@ -253,7 +253,7 @@ echo "${AYA_HOME}/target/release/aya-node \
     --port 30333 \
     --rpc-port 9944 \
     --log info \
-    --bootnodes /ip4/35.189.75.1/tcp/30340/ws/p2p/12D3KooWEb8sRMz6JLzsJedPqvoHV11U2P72htRAiva3LN9GR5V6" >> start_aya_validator.sh
+    --bootnodes /dns/devnet-rpc.worldmobilelabs.com/tcp/30340/ws/p2p/12D3KooWRWZpEJygTo38qwwutM1Yo7dQQn8xw1zAAWpfMiAqbmyK" >> start_aya_validator.sh
 sudo chmod +x ./start_aya_validator.sh
 ```
 
@@ -351,19 +351,22 @@ curl -H "Content-Type: application/json" -d '{"id":1, "jsonrpc":"2.0", "method":
 
 Example Output: 
 ```
-0x04423b6990fa0a0c87b362d5d43411faefb8a54f0dfe5db10a90dd357d27d459aa1c76e6239a4bda1c3b07ea5785cad3e42e48dd8d2b89403dfa894aff6060e208adcf5c46ac4aab449a35ed71be861bd1242fedab04073f7d686fc138b59252
+0x42ad00eae2336671febcce956db3e5716b4ad7fb3cc8bb576463882f3b3eab256091e0b8a8e08eef8b13153a05800712a4b661a3470f817dc002fd3c63649f26305a8ce33139a89753136bb5c77ebcc38ace19ebb27d96ad7a52c0ee5ebebc77
 ```
 
-The output contains the AURA, GRANDPA and IMONLINE public keys in one large string, we need to splitt the string up. Each key has 32 bytes, the string is hex encoded so each key has 64 characters. Each of the keys needs a prefix '0x' to indecate it is hex encoded. The output starts already with '0x' so the first key starts behind the '0x' and is 64 characters long. The second key starts at the 65 character, it has no '0x' prependet yet so we do that. The next key starts at character 130 and also needs a '0x' prefix. All keys should have the same length (32byte or 64 characters) and have a 0x prepended. 
+The output contains the AURA, GRANDPA and IMONLINE public keys in one large string, we need to split the string up. Each key has 32 bytes, the string is hex encoded so each key has 64 characters. Each of the keys needs a prefix '0x' to indecate it is hex encoded. The output starts already with '0x' so the first key starts behind the '0x' and is 64 characters long. The second key starts at the 65 character, it has no '0x' prependet yet so we do that. The next key starts at character 130 and also needs a '0x' prefix. All keys should have the same length (32byte or 64 characters) and have a 0x prepended. 
 
-Tip: Copy one of the exampel keys below to a text file. Copy the output string to the line below. Now you see where you need to split the string. Hit enter, prefix it with `0x`, repeat.
+Tip: Just use the script `utils/session_key_tools/split_session_key.sh` 
  
-
 Example: 
 ```
-0x04423b6990fa0a0c87b362d5d43411faefb8a54f0dfe5db10a90dd357d27d459 = Aura Key
-0xaa1c76e6239a4bda1c3b07ea5785cad3e42e48dd8d2b89403dfa894aff6060e2 = Grandpa Key
-0x08adcf5c46ac4aab449a35ed71be861bd1242fedab04073f7d686fc138b59252 = ImOnline Key
+./utils/session_key_tools/split_session_key.sh 0x42ad00eae2336671febcce956db3e5716b4ad7fb3cc8bb576463882f3b3eab256091e0b8a8e08eef8b13153a05800712a4b661a3470f817dc002fd3c63649f26305a8ce33139a89753136bb5c77ebcc38ace19ebb27d96ad7a52c0ee5ebebc77
+------------------------------------
+Your session keys:
+AURA_SESSION_KEY=0x42ad00eae2336671febcce956db3e5716b4ad7fb3cc8bb576463882f3b3eab25
+GRANDPA_SESSION_KEY=0x6091e0b8a8e08eef8b13153a05800712a4b661a3470f817dc002fd3c63649f26
+IM_ONLINE_SESSION_KEY=0x305a8ce33139a89753136bb5c77ebcc38ace19ebb27d96ad7a52c0ee5ebebc77
+------------------------------------
 ```
 
 Put the keys aside, you will need them in the next step. 
@@ -371,19 +374,21 @@ Put the keys aside, you will need them in the next step.
 
 ## Connect to Polkadot-JS Development Front-End
 
-### Connect to Public Remote Note
-You can connect to a Polkadot-JS Front-End using our public remote node, be aware that the node uses a self-signed SSL certificate which you need to accept in order to use it. 
-Accept the risk on this endpoint: [Link](https://35.189.75.1/)
-After accepting you should see `Used HTTP Method is not allowed. POST or OPTIONS is required` on a blank page.
+### Access the Front-End
 
-Now you should be able to connect to the RPC endpoint of the public node: 
-[Front-End](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2F35.189.75.1%3A#/explorer)
+[Front-End](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fdevnet-rpc.worldmobilelabs.com%3A#/explorer)
 
 ### Setup Wallet and Restore Validator Account in Talisman
 In the next step we want to add our validator account to a wallet and connect with the development frontend. You can use another account as the one generated before to register the session keys but you need to set the session keys which belong to the validator.
 
 Please follow the instructions in the [Custom Account Guide](https://github.com/worldmobilegroup/aya-node/blob/main/docs/guide_custom_account.md) to install Talisman. 
 Than use the mnemonic generated earlier for your validator to restore the wallet in Talisman (or use another wallet). 
+
+DevNet Public RPC Endpoint: devnet-rpc.worldmobilelabs.com
+
+It is possible to connect via https:// (ethereum rpc endpoints) or websocket wss:// (Substrate/Polkadot rpc endpoints).
+You need to add the network as well as ethereum network as well as polkadot network. 
+Polkadot-js front-end will use the websocket whereas the wallet will use the other. 
 
 Add the following Network to Talisman (Polkadot):
 ![AyA-DevNet RPC Endpoint](assets/talisman_aya_devnet.png)
@@ -392,7 +397,7 @@ Refresh the Polkadot-JS development front-end, then connect the new wallet in Ta
 
 ### Get FERN
 You need to get some FERN tokens from the faucet to pay for transaction fees. 
-
+Go to the [faucet](https://devnet-faucet.worldmobilelabs.com/) and request some. 
 
 
 ## Become a Validator
@@ -403,7 +408,7 @@ If you do not provide ImOnline messages during an epoch you are getting kicked t
 ### Submit Session Keys
 To submit the session keys you obtained in the step before you need a working Polkadot-JS front-end and your account needs to have funds to pay for transaction fees. The wallet registering the session keys does not need to be the one generated for the validator, but the session keys must match! Only you (the operator) should know your session keys when you triggered a rotation and only you should be able to rotate session keys. It is not possible to register the same session keys twice.
 
-Go to the [Front-End](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2F35.189.75.1%3A#/explorer) and navigate to `Developer -> Extrinsics`.
+Go to the [Front-End](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fdevnet-rpc.worldmobilelabs.com%3A#/explorer) and navigate to `Developer -> Extrinsics`.
 ![DeveloperExtrinsic](assets/sessionKeys_developerExtrinsic.png)
 
 Select the validator account you imported into Talisman before.
@@ -437,9 +442,9 @@ Select your Account and submit the request by clicking on the `+`.
 Example Output: 
 ```
 {
-  aura: 0x5812bfae0ffa1f76d0dda8209f134b89d7d166f8a94e10e3d083400321913e7f
-  grandpa: 0xe37716375e16d07b1b1333345fe766dbc03a46bd0c2be2c1c03d83f2aa9c1ee7
-  imOnline: 0x94c75738ba17c57a1bfae1181b688ff6fa28cdf862fe696714d8d6f175a00230
+  aura: 0x42ad00eae2336671febcce956db3e5716b4ad7fb3cc8bb576463882f3b3eab25
+  grandpa: 0x6091e0b8a8e08eef8b13153a05800712a4b661a3470f817dc002fd3c63649f26
+  imOnline: 0x305a8ce33139a89753136bb5c77ebcc38ace19ebb27d96ad7a52c0ee5ebebc77
 }
 ```
 
