@@ -24,7 +24,7 @@ serde_json = { workspace = true, features = ["arbitrary_precision"] }
 jsonrpc-core = "18.0.0" # check for the latest or required version
 jsonrpc-derive = "18.0.0"
 serde = { version = "1.0", features = ["derive"] }
-
+sp-io = { workspace = true }
 jsonrpc-core-client = "18.0.0" 
 
 

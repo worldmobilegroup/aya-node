@@ -10,7 +10,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend; // Provides the `info()` method
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::sync::Arc;
-
+use sp_io;
 /// RPC interface for receiving Cardano follower notifications.
 #[rpc]
 pub trait CardanoFollowerRpc {
@@ -30,12 +30,10 @@ where
     Client::Api: RuntimeApiCollection,
 {
     fn submit_cardano_event(&self, event: String) -> RpcResult<u64> {
-        // Log the incoming event for debugging purposes
         println!("Received event: {}", event);
 
-        // Attempt to deserialize the JSON string into an Event struct
+        // Deserialize the JSON string into an Event struct
         let parsed_event: Event = serde_json::from_str(&event).map_err(|e| {
-            // Log parsing errors
             println!("Error parsing event: {}", e);
             RpcError {
                 message: "Failed to parse event".into(),
@@ -44,24 +42,16 @@ where
             }
         })?;
 
-        // Submitting a transaction to the runtime with the parsed event
-        //TODO: Is this really what we ant to do here?
-        //Probably will save to offchain storage
-        let api = self.client.runtime_api();
-        let at = BlockId::hash(self.client.info().best_hash);
-        let result = api.submit_event(&at, parsed_event).map_err(|e| {
-            // Log errors from the runtime API
-            println!("Runtime API failed: {}", e);
-            RpcError {
-                message: "Runtime API failed".into(),
-                code: ErrorCode::ServerError(102),
-                data: Some(format!("{:?}", e).into()),
-            }
-        })?;
+        // Store the event data in offchain storage
+        let key = b"cardano_events"; // Define a key for your storage
+        let data = serde_json::to_vec(&parsed_event).expect("Serialization should work");
 
-        Ok(result)
+        sp_io::offchain::local_storage_set(sp_runtime::offchain::StorageKind::PERSISTENT, key, &data);
+
+        Ok(0) // Return some identifier or success code
     }
 }
+
 
 impl<Client> CardanoFollowerRpcImpl<Client>
 where
@@ -94,7 +84,7 @@ where
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Event {
     pub data: String,
 }
