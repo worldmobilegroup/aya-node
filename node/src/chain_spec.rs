@@ -7,15 +7,15 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::{ChainType, Properties};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::{H160, Pair, Public};
 use sp_core::crypto::Ss58Codec;
 #[allow(unused_imports)]
 use sp_core::ecdsa;
+use sp_core::{Pair, Public, H160};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
 // Frontier
 use aya_runtime::{
-    AccountId, Balance, opaque::SessionKeys, RuntimeGenesisConfig, Signature, SS58Prefix,
+    opaque::SessionKeys, AccountId, Balance, RuntimeGenesisConfig, SS58Prefix, Signature,
     WASM_BINARY,
 };
 
@@ -152,7 +152,7 @@ pub fn devnet_config() -> ChainSpec {
         .with_chain_type(ChainType::Live)
         .with_properties(properties())
         .with_genesis_config_patch(testnet_genesis(
-            // Sudo account (Frigga)
+            // Sudo account
             AccountId::from(hex!("be2b160c405f48C966D500D51825Ca7C3b895115")),
             // Pre-funded accounts
             vec![
@@ -166,15 +166,21 @@ pub fn devnet_config() -> ChainSpec {
             vec![
                 (
                     AccountId::from(hex!("be2b160c405f48C966D500D51825Ca7C3b895115")),
-                    AuraId::from_ss58check("5DLejswkk5ZkYCadBbbeHjYS1pEkHBSmtGnbQ5mF8TVctG6R").unwrap(),
-                    GrandpaId::from_ss58check("5E8oFZ6d5JexFBA573hKYsJnspZ8CJFYTKjWE5194eAMMgSQ").unwrap(),
-                    ImOnlineId::from_ss58check("5DLejswkk5ZkYCadBbbeHjYS1pEkHBSmtGnbQ5mF8TVctG6R").unwrap(),
+                    AuraId::from_ss58check("5DLejswkk5ZkYCadBbbeHjYS1pEkHBSmtGnbQ5mF8TVctG6R")
+                        .unwrap(),
+                    GrandpaId::from_ss58check("5E8oFZ6d5JexFBA573hKYsJnspZ8CJFYTKjWE5194eAMMgSQ")
+                        .unwrap(),
+                    ImOnlineId::from_ss58check("5DLejswkk5ZkYCadBbbeHjYS1pEkHBSmtGnbQ5mF8TVctG6R")
+                        .unwrap(),
                 ),
                 (
                     AccountId::from(hex!("bDEfFf4E3c33130f712b8ade58a9a2ec6508F87a")),
-                    AuraId::from_ss58check("5HWgpxBm7jY8GKFabTnBhdHbBPkucMPDNpHyTRHzCZYPUd2z").unwrap(),
-                    GrandpaId::from_ss58check("5DrCBGSzmUexKxc1DPitNF7uChZdHJZdZER6a5nxRrvmzeDx").unwrap(),
-                    ImOnlineId::from_ss58check("5HWgpxBm7jY8GKFabTnBhdHbBPkucMPDNpHyTRHzCZYPUd2z").unwrap(),
+                    AuraId::from_ss58check("5HWgpxBm7jY8GKFabTnBhdHbBPkucMPDNpHyTRHzCZYPUd2z")
+                        .unwrap(),
+                    GrandpaId::from_ss58check("5DrCBGSzmUexKxc1DPitNF7uChZdHJZdZER6a5nxRrvmzeDx")
+                        .unwrap(),
+                    ImOnlineId::from_ss58check("5HWgpxBm7jY8GKFabTnBhdHbBPkucMPDNpHyTRHzCZYPUd2z")
+                        .unwrap(),
                 ),
             ],
             1357,
@@ -193,18 +199,7 @@ fn testnet_genesis(
     enable_manual_seal: bool,
 ) -> serde_json::Value {
     let evm_accounts = {
-        let mut map: BTreeMap<H160, GenesisAccount> = BTreeMap::new();
-        // map.insert(
-        //     // H160 address for benchmark usage
-        //     H160::from_str("1000000000000000000000000000000000000001")
-        //         .expect("internal H160 is valid; qed"),
-        //     fp_evm::GenesisAccount {
-        //         nonce: U256::from(1),
-        //         balance: U256::from(1_000_000_000_000_000_000_000_000u128),
-        //         storage: Default::default(),
-        //         code: vec![0x00],
-        //     },
-        // );
+        let map: BTreeMap<H160, GenesisAccount> = BTreeMap::new();
         map
     };
 
