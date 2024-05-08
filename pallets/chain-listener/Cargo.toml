@@ -21,7 +21,8 @@ scale-info = { workspace = true }
 log = { workspace = true }
 scale-codec = { workspace = true }
 sp-consensus-aura = { workspace = true }
-
+sp-std = {workspace = true}
+serde = { workspace = true }	
 [features]
 default = ["std"]
 std = [
@@ -33,6 +34,9 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
+	"sp-std/std",
+	"serde/std",
+
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

@@ -6,14 +6,14 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::{ChainType, Properties};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
-use sp_core::{H160, Pair, Public, U256};
 #[allow(unused_imports)]
 use sp_core::ecdsa;
+use sp_core::{Pair, Public, H160, U256};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
 // Frontier
 use aya_runtime::{
-    AccountId, Balance, opaque::SessionKeys, RuntimeGenesisConfig, Signature, SS58Prefix,
+    opaque::SessionKeys, AccountId, Balance, RuntimeGenesisConfig, SS58Prefix, Signature,
     WASM_BINARY,
 };
 
@@ -54,7 +54,10 @@ fn session_keys(aura: AuraId, grandpa: GrandpaId, im_online: ImOnlineId) -> Sess
     }
 }
 
-pub fn authority_keys_from_seed(s: &str, a: AccountId) -> (AccountId, AuraId, GrandpaId, ImOnlineId) {
+pub fn authority_keys_from_seed(
+    s: &str,
+    a: AccountId,
+) -> (AccountId, AuraId, GrandpaId, ImOnlineId) {
     (
         a,
         get_from_seed::<AuraId>(s),

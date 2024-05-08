@@ -71,7 +71,6 @@ use pallet_evm::{
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
-
 // A few exports that help ease life for downstream crates.
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
@@ -79,7 +78,6 @@ pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::Multiplier;
 
 pub use chain_listener;
-
 
 mod precompiles;
 
@@ -336,10 +334,8 @@ use sp_consensus_aura::ed25519::AuthorityId;
 impl chain_listener::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
-    type AuthorityId = AuthorityId;   
-
+    type AuthorityId = AuthorityId;
 }
-
 
 parameter_types! {
     pub const Period: u32 = 2 * MINUTES;
@@ -772,8 +768,6 @@ pub mod pallet_manual_seal {
 impl pallet_manual_seal::Config for Runtime {}
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
-
-
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
 frame_support::construct_runtime!(
