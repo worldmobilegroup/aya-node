@@ -11,13 +11,6 @@ use jsonrpc_core::{Error as RpcError, Result as RpcResult, ErrorCode as JsonRpcC
 use jsonrpsee::types::error::{ErrorCode as JsonRpcSeeErrorCode};
 
 
-
-
-// Assuming you are working with a specific block type from your runtime
-use aya_runtime::{opaque::Block, RuntimeApi};
-
-// Make sure all necessary crates are correctly imported
-
 /// RPC interface for receiving Cardano follower notifications.
 #[rpc]
 pub trait CardanoFollowerRpc {
@@ -97,7 +90,7 @@ where
 
 #[derive(Deserialize, Debug)]
 pub struct Event {
-    // Example fields
+
     pub data: String,
 }
 
