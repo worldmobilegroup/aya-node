@@ -351,19 +351,22 @@ curl -H "Content-Type: application/json" -d '{"id":1, "jsonrpc":"2.0", "method":
 
 Example Output: 
 ```
-0x04423b6990fa0a0c87b362d5d43411faefb8a54f0dfe5db10a90dd357d27d459aa1c76e6239a4bda1c3b07ea5785cad3e42e48dd8d2b89403dfa894aff6060e208adcf5c46ac4aab449a35ed71be861bd1242fedab04073f7d686fc138b59252
+0x42ad00eae2336671febcce956db3e5716b4ad7fb3cc8bb576463882f3b3eab256091e0b8a8e08eef8b13153a05800712a4b661a3470f817dc002fd3c63649f26305a8ce33139a89753136bb5c77ebcc38ace19ebb27d96ad7a52c0ee5ebebc77
 ```
 
-The output contains the AURA, GRANDPA and IMONLINE public keys in one large string, we need to splitt the string up. Each key has 32 bytes, the string is hex encoded so each key has 64 characters. Each of the keys needs a prefix '0x' to indecate it is hex encoded. The output starts already with '0x' so the first key starts behind the '0x' and is 64 characters long. The second key starts at the 65 character, it has no '0x' prependet yet so we do that. The next key starts at character 130 and also needs a '0x' prefix. All keys should have the same length (32byte or 64 characters) and have a 0x prepended. 
+The output contains the AURA, GRANDPA and IMONLINE public keys in one large string, we need to split the string up. Each key has 32 bytes, the string is hex encoded so each key has 64 characters. Each of the keys needs a prefix '0x' to indecate it is hex encoded. The output starts already with '0x' so the first key starts behind the '0x' and is 64 characters long. The second key starts at the 65 character, it has no '0x' prependet yet so we do that. The next key starts at character 130 and also needs a '0x' prefix. All keys should have the same length (32byte or 64 characters) and have a 0x prepended. 
 
-Tip: Copy one of the exampel keys below to a text file. Copy the output string to the line below. Now you see where you need to split the string. Hit enter, prefix it with `0x`, repeat.
+Tip: Just use the script `utils/session_key_tools/split_session_key.sh` 
  
-
 Example: 
 ```
-0x04423b6990fa0a0c87b362d5d43411faefb8a54f0dfe5db10a90dd357d27d459 = Aura Key
-0xaa1c76e6239a4bda1c3b07ea5785cad3e42e48dd8d2b89403dfa894aff6060e2 = Grandpa Key
-0x08adcf5c46ac4aab449a35ed71be861bd1242fedab04073f7d686fc138b59252 = ImOnline Key
+./utils/session_key_tools/split_session_key.sh 0x42ad00eae2336671febcce956db3e5716b4ad7fb3cc8bb576463882f3b3eab256091e0b8a8e08eef8b13153a05800712a4b661a3470f817dc002fd3c63649f26305a8ce33139a89753136bb5c77ebcc38ace19ebb27d96ad7a52c0ee5ebebc77
+------------------------------------
+Your session keys:
+AURA_SESSION_KEY=0x42ad00eae2336671febcce956db3e5716b4ad7fb3cc8bb576463882f3b3eab25
+GRANDPA_SESSION_KEY=0x6091e0b8a8e08eef8b13153a05800712a4b661a3470f817dc002fd3c63649f26
+IM_ONLINE_SESSION_KEY=0x305a8ce33139a89753136bb5c77ebcc38ace19ebb27d96ad7a52c0ee5ebebc77
+------------------------------------
 ```
 
 Put the keys aside, you will need them in the next step. 
@@ -439,9 +442,9 @@ Select your Account and submit the request by clicking on the `+`.
 Example Output: 
 ```
 {
-  aura: 0x5812bfae0ffa1f76d0dda8209f134b89d7d166f8a94e10e3d083400321913e7f
-  grandpa: 0xe37716375e16d07b1b1333345fe766dbc03a46bd0c2be2c1c03d83f2aa9c1ee7
-  imOnline: 0x94c75738ba17c57a1bfae1181b688ff6fa28cdf862fe696714d8d6f175a00230
+  aura: 0x42ad00eae2336671febcce956db3e5716b4ad7fb3cc8bb576463882f3b3eab25
+  grandpa: 0x6091e0b8a8e08eef8b13153a05800712a4b661a3470f817dc002fd3c63649f26
+  imOnline: 0x305a8ce33139a89753136bb5c77ebcc38ace19ebb27d96ad7a52c0ee5ebebc77
 }
 ```
 
