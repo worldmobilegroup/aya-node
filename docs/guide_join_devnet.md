@@ -136,7 +136,17 @@ Inspect:
 
 ## Get EVM Account and Keys
 
-Subkey/Aya-Node unforutnatley do not give us all information, to generate also the EVM accounts use the validator_keys.sh script in the utils folder of the aya-node repository. See the Readme to learn more. (This step is optional if you did not derived an account)
+Subkey/Aya-Node unfortunately do not give us all information, to generate also the EVM accounts use the
+validator_keys.sh script in the `utils/account_derivation_tools` folder of the aya-node repository. See the Readme to
+learn more. (This step is optional if you did not derived an account)
+
+First, install the dependencies (we assume you are on the project root directory):
+
+```bash
+cd utils/account_derivation_tools/tools/keys
+npm i
+cd ../..
+```
 
 Execute the script: 
 ```bash
@@ -266,7 +276,7 @@ The validator should start syncing, if there is a problem check the path to the 
 
 Stop the aya-node again by pressing Ctrl+C.
 
-### Creat systemd service
+### Create systemd service
 Next we create the systemd service:
 
 ```bash
