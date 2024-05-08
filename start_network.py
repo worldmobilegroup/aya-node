@@ -31,7 +31,7 @@ def fetch_logs_for_node_key():
 def fetch_ip_address():
     """Fetch IP address for Alice from the Docker network."""
     print("Fetching IP address for Alice...")
-    command = "docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' aya-alice-1"
+    command = "docker inspect -f '{{.NetworkSettings.Networks.aya_aya_network.IPAddress}}' aya-alice-1"
     ip_address = run_command(command, capture=True)
     if ip_address:
         print(f"Found IP address: {ip_address}")
@@ -39,6 +39,8 @@ def fetch_ip_address():
     else:
         print("IP address not found.")
         return None
+
+
 
 def start_network():
     """Main function to start network components including all dependencies."""

@@ -30,18 +30,30 @@ services:
       - "30334:30334"
    
       - "9946:9946"
-
-  scrolls:
-    image: sylvaincormier/chain-follower:v0.2
-    command: ["/usr/bin/aya_chain_follower", "daemon", "--config", "/app/daemon_conf.toml"]
-    environment:
-      - RUST_LOG=info
+  cardano-node:
+    image: cardanocommunity/cardano-node
+    container_name: cardano-node
     volumes:
-      - ./daemon_conf.toml:/app/daemon_conf.toml  
+      - ./cardano-node-ipc:/ipc # socket path
+      - ./cardano-node-data:/data
+      #- ./configuration:/configuration
+      - ./config:/config
+      - ./cardano-wallet:/cardano-wallet # cardano-cli path
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+      - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
+      - CARDANO_CLI=/cardano-wallet/cardano-cli
+      - TESTNET_MAGIC=1
+      - DOCKER_CLIENT_TIMEOUT=120
+      - COMPOSE_HTTP_TIMEOUT=120
+      - NETWORK=preprod
     ports:
-      - "9615:9615"
+      - "3001:3001"
+    restart: unless-stopped
     networks:
       - aya_network
+  
+  
     
 networks:
   aya_network:

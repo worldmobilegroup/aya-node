@@ -10,7 +10,8 @@ RUN apt-get update -y && \
 
 # Install rust wasm. Needed for substrate wasm engine
 RUN rustup target add wasm32-unknown-unknown
-RUN rustup component add rust-src --toolchain nightly-aarch64-unknown-linux-gnu
+RUN rustup component add rust-src
+
 # Download Frontier repo
 RUN git clone https://github.com/worldmobilegroup/aya-node /aya
 RUN cd /aya && git submodule init && git submodule update
