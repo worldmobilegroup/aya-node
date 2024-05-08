@@ -125,14 +125,14 @@ export IM_ONLINE_KEY=XXX
     --chain devnet \
     --key-type aura \
     --scheme sr25519 \
-    --suri "${GRANDPA_KEY}";
+    --suri "${AURA_KEY}";
     
 ./target/release/aya-node key insert \
     --base-path data/ullr \
     --chain devnet \
     --key-type gran \
     --scheme ed25519 \
-    --suri "${AURA_KEY}";
+    --suri "${GRANDPA_KEY}";
     
 ./target/release/aya-node key insert \
     --base-path data/ullr \
