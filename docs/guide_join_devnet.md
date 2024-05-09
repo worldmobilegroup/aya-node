@@ -68,13 +68,34 @@ We recommend to compile the aya-node not on a small virtual machine as this can 
 Clone the AyA-Node Repository:
 ```bash
 git clone https://github.com/worldmobilegroup/aya-node.git
+cd aya-node
+```
+
+For DevNet we checkout the devnet version of the aya-node: 
+```bash
+git checkout tags/devnet-v.0.2.0 -b my-devnet-branch
 ```
 
 Compile the AyA-Node:
 ```bash
-cd aya-node
+git checkout tags/devnet-v.0.2.0
 cargo build --release
 ```
+
+***Additional Information***
+If you want to update your local github repository and work with another branch you can do that for example:
+
+```bash
+git checkout main
+git pull origin main
+```
+
+If you want to merge the changes of another branch into your local branch, for example `main` into your `my-devnet-branch`, you can do that with: 
+```bash
+git checkout my-devnet-branch
+git merge main
+```
+For more information on git see: [A beginner's guide to Git version control](https://developers.redhat.com/articles/2023/08/02/beginners-guide-git-version-control#)
 
 ### 3.2 Use Precompiled Binaries
 
