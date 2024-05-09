@@ -71,18 +71,18 @@ git clone https://github.com/worldmobilegroup/aya-node.git
 cd aya-node
 ```
 
-For DevNet we checkout the devnet version of the aya-node: 
+For DevNet we checkout the devnet version of the aya-node and create a new local branch: 
 ```bash
 git checkout tags/devnet-v.0.2.0 -b my-devnet-branch
 ```
 
 Compile the AyA-Node:
 ```bash
-git checkout tags/devnet-v.0.2.0
 cargo build --release
 ```
 
 ***Additional Information***
+
 If you want to update your local github repository and work with another branch you can do that for example:
 
 ```bash
