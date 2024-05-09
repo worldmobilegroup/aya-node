@@ -12,7 +12,7 @@ Memory: 8 GB
 
 Storage: ~250 GB
 
-## 2. Setting Up OS
+## 2. Set up Operating System
 
 Login to your server and access the terminal, for example using SSH connection. 
 
@@ -22,6 +22,7 @@ Install dependencies:
 sudo apt update
 sudo apt install -y git clang curl libssl-dev llvm libudev-dev make protobuf-compiler pkg-config build-essential
 ```
+## 3. Set up Build Envrionment
 
 Install Rust: 
 
@@ -60,7 +61,7 @@ rustup show
 rustup +nightly show
 ```
 
-## 3. Build AyA-Node from Source Code
+### 3.1 Build AyA-Node from Source Code
 
 We recommend to compile the aya-node not on a small virtual machine as this can take quite some time. Instead build the aya-node on your local machine and copy the binary to the server. 
 
@@ -76,7 +77,15 @@ git checkout -b "my-wip-branch"
 cargo build --release
 ```
 
-## 4. Setting up systemd
+### 3.2 Use Precompiled Binaries
+
+If you do not want to build the aya-node from source, you can use the precompiled binaries: 
+
+[Release DevNet AyA Node v0.2.0](https://github.com/worldmobilegroup/aya-node/releases/tag/devnet-v.0.2.0)
+
+Download and copy the `aya-node` and `wm-devnet-chainspec.json` files to your server. The guide assumes you built from source so make sure you adjust file paths. To get the same folder structure as for the build from source option, create the folder `aya-node/target/release` and copy the `aya-node` binary into it. The `wm-devnet-chainspec.json` would be expected in the folder `aya-node/`.
+
+## 4. Setting Up systemd
 We want that our validator starts automatically with the server and is restarted automatically. For that purpose we create a systemd service (Ubuntu 22.04).
 
 First we create a startup script for the AyA-Node.
@@ -118,7 +127,7 @@ The validator should start syncing, if there is a problem check the path to the 
 
 Stop the aya-node again by pressing Ctrl+C.
 
-### Create systemd service
+### Create a systemd service
 Next we create the systemd service:
 
 ```bash
