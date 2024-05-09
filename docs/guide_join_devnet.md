@@ -19,7 +19,7 @@ Login to your server and access the terminal, for example using SSH connection.
 Install dependencies: 
 
 ```bash
-sudo apt update
+sudo apt upgrade && sudo apt update
 sudo apt install -y git clang curl libssl-dev llvm libudev-dev make protobuf-compiler pkg-config build-essential
 ```
 ## 3. Set up Build Envrionment
@@ -135,6 +135,7 @@ sudo nano /etc/systemd/system/aya-node.service
 ```
 
 Copy the following content to the file and make sure to adjust the `/PATH/TO/` the file `start_aya_validator.sh` we created in the last step.
+**You should not run the service as root, please exchange the user to your prefered user on the system**
 ```
 [Unit]
 Description=AyA Node
