@@ -73,7 +73,6 @@ git clone https://github.com/worldmobilegroup/aya-node.git
 Compile the AyA-Node:
 ```bash
 cd aya-node
-git checkout -b "my-wip-branch"
 cargo build --release
 ```
 
