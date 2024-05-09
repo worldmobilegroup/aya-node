@@ -106,17 +106,17 @@ where
     }
 
     // Ethereum compatibility RPCs
-    let io = create_eth::<_, _, _, _, _, _, _, DefaultEthConfig<C, BE>>(
+    let mut io = create_eth::<_, _, _, _, _, _, _, DefaultEthConfig<C, BE>>(
         io,
         eth,
         subscription_task_executor,
         pubsub_notification_sinks,
     )?;
-    let cardano_rpc = CardanoFollowerRpcImpl {
-        client: client.clone(),
-    };
+    // It should be changed to this:
+    let cardano_rpc_module = CardanoFollowerRpcImpl{}.into_rpc();
+    
+    io.merge(cardano_rpc_module.clone())?;
 
-    // io.merge(cardano_rpc.into_rpc())?;
 
     Ok(io)
 }

@@ -1,9 +1,9 @@
-use aya_runtime::{opaque::Block, RuntimeApi};
+
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result as RpcResult};
 use serde::{Deserialize, Serialize};
-use sp_api::ProvideRuntimeApi;
+use aya_runtime::Block;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+
 use std::sync::Arc;
 use sp_io;
 use jsonrpc_derive::rpc;
@@ -18,16 +18,12 @@ pub trait CardanoFollowerRpc {
 }
 
 /// Implementation of the CardanoFollowerRpc trait.
-pub struct CardanoFollowerRpcImpl<Client> {
-    /// Public dependency on Substrate client.
-    pub client: Arc<Client>,
-}
+pub struct CardanoFollowerRpcImpl;
 
-impl<Client> CardanoFollowerRpc for CardanoFollowerRpcImpl<Client>
-where
-    Client: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
-    Client::Api: RuntimeApiCollection,
+impl CardanoFollowerRpc for CardanoFollowerRpcImpl
 {
+ 
+
     fn submit_cardano_event(&self, event: String) -> RpcResult<u64> {
         println!("Received event: {}", event);
 
@@ -64,20 +60,15 @@ pub struct Event {
     pub data: String,
 }
 
-/// Runtime API collection that includes all APIs needed for this RPC
-pub trait RuntimeApiCollection: sp_api::ApiExt<Block> {
-    fn submit_event(&self, at: &BlockId<Block>, event: Event) -> Result<u64, sp_api::ApiError>;
-}
 
-impl<Client> CardanoFollowerRpcImpl<Client>
-where
-    Client: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
-    Client::Api: RuntimeApiCollection,
+
+impl CardanoFollowerRpcImpl
+    
 {
     pub fn into_rpc(self) -> RpcModule<Self> {
         let mut module = RpcModule::new(self);
         module.register_async_method("submitCardanoEvent", |_params, ctx| async move {
-            // You can insert more complex logic here, now that the redundancy is resolved.
+            
             "Hello from async method".to_string()
         }).unwrap();
         module
