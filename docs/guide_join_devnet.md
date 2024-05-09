@@ -1,10 +1,10 @@
-# Join the World Mobile Dev-Net
+# Join the World Mobile DevNet
 
 Welcome, lets start!
 
-## Minimal Server Requirnments
+## 1. Minimal Server Requirnments
 
-OS: Ubuntu 22.04
+Operating System: Ubuntu 22.04
 
 CPU: 2x vCPU
 
@@ -12,7 +12,7 @@ Memory: 8 GB
 
 Storage: ~250 GB
 
-## Setting Up OS
+## 2. Setting Up OS
 
 Login to your server and access the terminal, for example using SSH connection. 
 
@@ -48,7 +48,7 @@ rustup target add wasm32-unknown-unknown
 rustup update
 ```
 
-Configure Rust Nighly (Nighly is needed to build subkey, it can be skipped if you don't want to compile subkey)
+Configure Rust Nighly (Nighly is needed to build subkey, it can be skipped if you don't want to compile subkey but subkey is expected if you want to use the scripts in the utils folder of the aya-node repository.)
 ```bash
 rustup update nightly
 rustup target add wasm32-unknown-unknown --toolchain nightly
@@ -60,7 +60,7 @@ rustup show
 rustup +nightly show
 ```
 
-## Build AyA-Node from Source Code
+## 3. Build AyA-Node from Source Code
 
 We recommend to compile the aya-node not on a small virtual machine as this can take quite some time. Instead build the aya-node on your local machine and copy the binary to the server. 
 
@@ -76,165 +76,7 @@ git checkout -b "my-wip-branch"
 cargo build --release
 ```
 
-## Prepare Key Setup
-We recommend to use an air gapped machine to generate your keys. You can use subkey or the aya-node binary to generate keys. 
-
-### Using subkey
-Please follow the official Documentation to install subkey: [Subkey Docs](https://docs.substrate.io/reference/command-line-tools/subkey/)
-
-Copy the compiled subkey binary to `/usr/bin`:
-```bash
-sudo cp ./target/release/subkey /usr/bin/
-```
-
-Check subkey is installed:
-```bash
-subkey --version
-```
-
-You can delete the polkadot-sdk repository when subkey works as expected. It is very big and not needed anymore. 
-
-Creating a new key: 
-```bash
-subkey generate
-```
-
-Example Output: 
-```
-Secret phrase:       bottom drive obey lake curtain smoke basket hold race lonely fit walk
-  Network ID:        substrate
-  Secret seed:       0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a
-  Public key (hex):  0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d
-  Account ID:        0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d
-  Public key (SS58): 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY
-  SS58 Address:      5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY
-```
-
-The command `subkey inspect` will produce the same reuslt but the mnemonic is given.
-```bash 
-subkey inspect "bottom drive obey lake curtain smoke basket hold race lonely fit walk"
-```
-
-
-You can derive accounts like this:
-```bash 
-subkey inspect "bottom drive obey lake curtain smoke basket hold race lonely fit walk//Alice"
-```
-
-### Using Aya-Node Binary
-Keys can also be generated and inspected with the aya-node binary
-
-Generate:
-```bash
-./target/release/aya-node key generate
-```
-
-Inspect:
-```bash
-./target/release/aya-node key inspect "bottom drive obey lake curtain smoke basket hold race lonely fit walk"
-```
-
-## Get EVM Account and Keys
-
-Subkey/Aya-Node unfortunately do not give us all information, to generate also the EVM accounts use the
-validator_keys.sh script in the `utils/account_derivation_tools` folder of the aya-node repository. See the Readme to
-learn more. (This step is optional if you did not derived an account)
-
-First, install the dependencies (we assume you are on the project root directory):
-
-```bash
-cd utils/account_derivation_tools/tools/keys
-npm i
-cd ../..
-```
-
-Execute the script: 
-```bash
-./scripts/validator_keys.sh "bottom drive obey lake curtain smoke basket hold race lonely fit walk"
-``` 
-
-Example Output: 
-```
-Processing account:
-
-sr25519
-
-Secret phrase:       bottom drive obey lake curtain smoke basket hold race lonely fit walk
-  Network ID:        substrate
-  Secret seed:       0xfac7959dbfe72f052e5a0c3c8d6530f202b02fd8f9f5ca3580ec8deb7797479e
-  Public key (hex):  0x46ebddef8cd9bb167dc30878d7113b7e168e6f0646beffd77d69d39bad76b47a
-  Account ID:        0x46ebddef8cd9bb167dc30878d7113b7e168e6f0646beffd77d69d39bad76b47a
-  Public key (SS58): 5DfhGyQdFobKM8NsWvEeAKk5EQQgYe9AydgJ7rMB6E1EqRzV
-  SS58 Address:      5DfhGyQdFobKM8NsWvEeAKk5EQQgYe9AydgJ7rMB6E1EqRzV
-
-ed25519
-
-Secret phrase:       bottom drive obey lake curtain smoke basket hold race lonely fit walk
-  Network ID:        substrate
-  Secret seed:       0xfac7959dbfe72f052e5a0c3c8d6530f202b02fd8f9f5ca3580ec8deb7797479e
-  Public key (hex):  0x345071da55e5dccefaaa440339415ef9f2663338a38f7da0df21be5ab4e055ef
-  Account ID:        0x345071da55e5dccefaaa440339415ef9f2663338a38f7da0df21be5ab4e055ef
-  Public key (SS58): 5DFJF7tY4bpbpcKPJcBTQaKuCDEPCpiz8TRjpmLeTtweqmXL
-  SS58 Address:      5DFJF7tY4bpbpcKPJcBTQaKuCDEPCpiz8TRjpmLeTtweqmXL
-
-Compressed EVM key: 	0xf24FF3a9CF04c71Dbc94D0b566f7A27B94566cac
-Private key: 			0x5fb92d6e98884f76de468fa3f6278f8807c48bebc13595d45af5bdc4da702133
-
-------------
-```
-
-If you used a derived Address the sr25519 and the ed25519 private keys will be different.
-When you use a derived address, make sure you are able to restore the address in a wallet like MetaMask or Talisman to sign transactions. 
-
-
-## Setup Validator
-
-### Adding Keys to the Validator
-
-To setup the validator we need to add the secret keys to the keyring on the validator machine. On the machine running the validator, navigate to the `aya-node` repository folder.
-
-We need to add three keys: the AURA_KEY, GRANDPA_KEY and Im-IM_ONLINE_KEY key. Depending on the derivation path in the mnemonic the, secret seeds of the ed25519 and sr25519 scheme might differ! The AURA_KEY and IM_ONLINE_KEY is the same sr25519 secret seed, the GRANDPA_KEY is the ed25519 secret seed. In this example the secret seeds are all the same because we did not derived an account. 
-You also need to set the base path of the node, the path were all data for the node is stored. We use `data/validator` make sure the path is accessible. 
-
-Optional - Set keys to environment variables or enter directly at the `--suri` parameter:
-```bash
-export AURA_KEY=0xfac7959dbfe72f052e5a0c3c8d6530f202b02fd8f9f5ca3580ec8deb7797479e
-export GRANDPA_KEY=0xfac7959dbfe72f052e5a0c3c8d6530f202b02fd8f9f5ca3580ec8deb7797479e
-export IM_ONLINE_KEY=0xfac7959dbfe72f052e5a0c3c8d6530f202b02fd8f9f5ca3580ec8deb7797479e
-```
-
-```bash
-./target/release/aya-node key insert \
-    --base-path data/validator \
-    --chain wm-devnet-chainspec.json \
-    --key-type aura \
-    --scheme sr25519 \
-    --suri "${AURA_KEY}";
-
-./target/release/aya-node key insert \
-    --base-path data/validator \
-    --chain wm-devnet-chainspec.json \
-    --key-type gran \
-    --scheme ed25519 \
-    --suri "${GRANDPA_KEY}";
-    
-./target/release/aya-node key insert \
-    --base-path data/validator \
-    --chain wm-devnet-chainspec.json \
-    --key-type imon \
-    --scheme sr25519 \
-    --suri "${IM_ONLINE_KEY}";
-```
-
-Check if keys were added:
-```bash
-ls -l data/validator/chains/aya_devnet/keystore/;
-```
-
-The command should output three files.
-
-
-### Setting up systemd
+## 4. Setting up systemd
 We want that our validator starts automatically with the server and is restarted automatically. For that purpose we create a systemd service (Ubuntu 22.04).
 
 First we create a startup script for the AyA-Node.
@@ -335,9 +177,220 @@ You can see in the logs that the node is importing blocks.
 
 If you just want to setup a full node you can stop here. 
 
-### Session Keys
 
-The aya-node is able to operate now, but the blockchain does not know of the validator yet. To make it possible for a validator to join the network as block producer it must commit its session keys and get added to the validator set by the ruling chain authority. The session keys are important, the rotation must be restricted to the operator only. Validators should for this purpose make sure no API of the validator is exposed to the public.
+## 5. Prepare Key Setup
+**The mnemonic used in this tutorial is an EXAMPLE and is PUBLICLY USED for ALICE, BOB,... DO NOT USE it; Replace *"bottom drive obey lake curtain smoke basket hold race lonely fit walk"* with your own generated mnemonic.** 
+
+You can use subkey or the aya-node binary to generate keys. If you want to use the scripts in the utils folder of the aya-node repository you need to install subkey.  
+
+### Using subkey
+Please follow the official documentation to install subkey: [Subkey Docs](https://docs.substrate.io/reference/command-line-tools/subkey/)
+
+Copy the compiled subkey binary to `/usr/bin` to be able to use it from any location in the system:
+
+```bash
+sudo cp ./target/release/subkey /usr/bin/
+```
+
+Check subkey is installed:
+```bash
+subkey --version
+```
+
+You can delete the polkadot-sdk repository when subkey works as expected. It is very big and not needed anymore. 
+
+Creating a new key: 
+```bash
+subkey generate
+```
+
+Example Output: 
+```
+Secret phrase:       bottom drive obey lake curtain smoke basket hold race lonely fit walk
+  Network ID:        substrate
+  Secret seed:       0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a
+  Public key (hex):  0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d
+  Account ID:        0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d
+  Public key (SS58): 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY
+  SS58 Address:      5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY
+```
+
+The command `subkey inspect` will produce the same reuslt but the mnemonic is given as input parameter.
+
+```bash 
+subkey inspect "bottom drive obey lake curtain smoke basket hold race lonely fit walk"
+```
+
+
+***Additional Information:***
+
+*You can derive accounts like this:*
+```bash 
+subkey inspect "bottom drive obey lake curtain smoke basket hold race lonely fit walk//Alice"
+```
+*It will produce the well known account of Alice. `//` Does a hard derivation `/` a soft derivation*
+
+### Using the Aya-Node Binary to generate keys
+Keys can also be generated and inspected with the aya-node binary
+
+Generate:
+```bash
+./target/release/aya-node key generate
+```
+
+Inspect:
+```bash
+./target/release/aya-node key inspect "bottom drive obey lake curtain smoke basket hold race lonely fit walk"
+```
+
+## 5.1 Get EVM Account and Derived Keys
+
+**If you use the mnemonic without derivation throughout this guide, there is no need to execute this part 5. as you will restore the mnemonic in a wallet and have your address there. Anyway this part has useful information for key handling**
+
+Subkey / Aya-Node unfortunately do not give us all information as they cannot derive the EVM account. To calculate the EVM account from the mnemonic you can use the `get_keys.sh` script in the `utils/account_derivation_tools/scripts` folder of the aya-node repository. Be aware that the scripts expect `subkey` to be installed in `/usr/bin`. The script will create the EVM account with the address_index 0 only. See also the Readme in `utils/account_derivation_tools`.
+
+First, install the dependencies (we assume you are on the projects root directory):
+
+```bash
+cd utils/account_derivation_tools/tools/keys
+npm i
+cd ../..
+```
+
+Execute the script using your generated mnemonic as input parameter.
+
+Example: 
+```bash
+./scripts/get_keys.sh "bottom drive obey lake curtain smoke basket hold race lonely fit walk"
+``` 
+
+Example Output: 
+```
+Processing account:
+
+sr25519
+
+Secret phrase:       bottom drive obey lake curtain smoke basket hold race lonely fit walk
+  Network ID:        substrate
+  Secret seed:       0xfac7959dbfe72f052e5a0c3c8d6530f202b02fd8f9f5ca3580ec8deb7797479e
+  Public key (hex):  0x46ebddef8cd9bb167dc30878d7113b7e168e6f0646beffd77d69d39bad76b47a
+  Account ID:        0x46ebddef8cd9bb167dc30878d7113b7e168e6f0646beffd77d69d39bad76b47a
+  Public key (SS58): 5DfhGyQdFobKM8NsWvEeAKk5EQQgYe9AydgJ7rMB6E1EqRzV
+  SS58 Address:      5DfhGyQdFobKM8NsWvEeAKk5EQQgYe9AydgJ7rMB6E1EqRzV
+
+ed25519
+
+Secret phrase:       bottom drive obey lake curtain smoke basket hold race lonely fit walk
+  Network ID:        substrate
+  Secret seed:       0xfac7959dbfe72f052e5a0c3c8d6530f202b02fd8f9f5ca3580ec8deb7797479e
+  Public key (hex):  0x345071da55e5dccefaaa440339415ef9f2663338a38f7da0df21be5ab4e055ef
+  Account ID:        0x345071da55e5dccefaaa440339415ef9f2663338a38f7da0df21be5ab4e055ef
+  Public key (SS58): 5DFJF7tY4bpbpcKPJcBTQaKuCDEPCpiz8TRjpmLeTtweqmXL
+  SS58 Address:      5DFJF7tY4bpbpcKPJcBTQaKuCDEPCpiz8TRjpmLeTtweqmXL
+
+Compressed EVM key: 	0xf24FF3a9CF04c71Dbc94D0b566f7A27B94566cac
+Private key: 			0x5fb92d6e98884f76de468fa3f6278f8807c48bebc13595d45af5bdc4da702133
+
+------------
+```
+
+You can also get the comprressed EVM key by restoring the mnemonic in a ethereum wallet e.g. MetaMask or Talisman. You can choose in the wallet what address_indexes you want to add.
+
+
+***Additional Information:***
+
+If you want to use a derived key the sr25519 and the ed25519 private keys will be different.
+To calculate a EVM address you need to know the derivation path and for some derivation path you cannot calculate an EVM account.
+EVM accounts use the derivation path `m//44//60//0/0/<address_index>`, see [BIP44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki) for more information.
+You can use a different mnemonic to register your session keys, for example using a hardware wallet. 
+
+You can derive a key from your mnemonic only you know. 
+
+For example to get AURA and IM_ONLINE Key: 
+```bash
+subkey inspect --scheme sr25519 "bottom drive obey lake curtain smoke basket hold race lonely fit walk//My//Secret//Derivation//Path"
+```
+
+For example to get a GRANDPA Key:
+```bash
+subkey inspect --scheme ed25519 "bottom drive obey lake curtain smoke basket hold race lonely fit walk//My//Secret//Derivation//Path"
+```
+
+This would result in the following private keys for your validator: 
+```
+sr25519
+
+Secret Key URI `bottom drive obey lake curtain smoke basket hold race lonely fit walk//My//Secret//Derivation//Path` is account:
+  Network ID:        substrate
+  Secret seed:       0xd159936a485167ec22d29876190adb9f8ed08879a28b46f9ee075ef3dcd7b4f2
+  Public key (hex):  0x00209b81aef17a150140d06979eb54bb23d8f7f72a25d7a1b429c72cdf19f555
+  Account ID:        0x00209b81aef17a150140d06979eb54bb23d8f7f72a25d7a1b429c72cdf19f555
+  Public key (SS58): 5C4sYUugQF27DktbzXhSVJNuMtJrFVvPP61bumtvTYKmTqak
+  SS58 Address:      5C4sYUugQF27DktbzXhSVJNuMtJrFVvPP61bumtvTYKmTqak
+
+ed25519
+
+Secret Key URI `bottom drive obey lake curtain smoke basket hold race lonely fit walk//My//Secret//Derivation//Path` is account:
+  Network ID:        substrate
+  Secret seed:       0xd64f614f9a1c218a43e7a066e8676dd23ef2ccab82232dae7180af50f788e376
+  Public key (hex):  0x579f175039ffaad0740f6e578235940a0e6ef0e8f3a9554334e2cf475fb38f6d
+  Account ID:        0x579f175039ffaad0740f6e578235940a0e6ef0e8f3a9554334e2cf475fb38f6d
+  Public key (SS58): 5E3bHNRo6pxpUetjZxZ5XWGaPcRF7RM7ZUbySuiLPZ1cjp3G
+  SS58 Address:      5E3bHNRo6pxpUetjZxZ5XWGaPcRF7RM7ZUbySuiLPZ1cjp3G
+```
+
+The derivation path `//My//Secret//Derivation//Path` cannot give us valid EVM account, so we would use a different account for the session key registration.
+
+
+## 6. Set Validator Private Keys
+
+### Adding private keys to the Validator keyring
+
+To setup the validator we need to add the secret keys to the keyring on the validator machine. On the machine running the validator, navigate to the `aya-node` folder.
+
+We need to add three keys: the AURA_KEY, GRANDPA_KEY and IM_ONLINE_KEY. Depending on the key derivation, the secret seeds of the ed25519 and sr25519 scheme might differ! The AURA_KEY and IM_ONLINE_KEY is the same sr25519 secret seed, the GRANDPA_KEY is the ed25519 secret seed. In this example the secret seeds are the same because we did not derived a key. 
+You also need to set the base path of the node, the path were all data for the node is stored. We use `data/validator`, make sure the path is accessible. 
+
+Set keys to environment variables or enter directly at the `--suri` parameter:
+```bash
+export AURA_KEY=0xfac7959dbfe72f052e5a0c3c8d6530f202b02fd8f9f5ca3580ec8deb7797479e
+export GRANDPA_KEY=0xfac7959dbfe72f052e5a0c3c8d6530f202b02fd8f9f5ca3580ec8deb7797479e
+export IM_ONLINE_KEY=0xfac7959dbfe72f052e5a0c3c8d6530f202b02fd8f9f5ca3580ec8deb7797479e
+```
+
+```bash
+./target/release/aya-node key insert \
+    --base-path data/validator \
+    --chain wm-devnet-chainspec.json \
+    --key-type aura \
+    --scheme sr25519 \
+    --suri "${AURA_KEY}";
+
+./target/release/aya-node key insert \
+    --base-path data/validator \
+    --chain wm-devnet-chainspec.json \
+    --key-type gran \
+    --scheme ed25519 \
+    --suri "${GRANDPA_KEY}";
+    
+./target/release/aya-node key insert \
+    --base-path data/validator \
+    --chain wm-devnet-chainspec.json \
+    --key-type imon \
+    --scheme sr25519 \
+    --suri "${IM_ONLINE_KEY}";
+```
+
+Check if keys were added:
+```bash
+ls -l data/validator/chains/aya_devnet/keystore/;
+```
+
+The command should output three files.
+
+## 7. Session Keys
+
+The aya-node is able to operate now, but the blockchain does not know of the validator yet. To make it possible for a validator to join the network as block producer it must commit its session keys and get added to the validator set by the ruling chain authority. The session keys are public keys derived from the private keys you just added in step 6.. The rotation must be restricted to the operator only. Node operators should for this purpose make sure the RPC API of the validator is not exposed to the public.
 
 To get your session keys you need to start the node and make a local RPC call. If you followed the previous steps your node should be already running as systemd service. 
 
@@ -364,7 +417,7 @@ Example Output:
 0x42ad00eae2336671febcce956db3e5716b4ad7fb3cc8bb576463882f3b3eab256091e0b8a8e08eef8b13153a05800712a4b661a3470f817dc002fd3c63649f26305a8ce33139a89753136bb5c77ebcc38ace19ebb27d96ad7a52c0ee5ebebc77
 ```
 
-The output contains the AURA, GRANDPA and IMONLINE public keys in one large string, we need to split the string up. Each key has 32 bytes, the string is hex encoded so each key has 64 characters. Each of the keys needs a prefix '0x' to indecate it is hex encoded. The output starts already with '0x' so the first key starts behind the '0x' and is 64 characters long. The second key starts at the 65 character, it has no '0x' prependet yet so we do that. The next key starts at character 130 and also needs a '0x' prefix. All keys should have the same length (32byte or 64 characters) and have a 0x prepended. 
+The output contains the AURA, GRANDPA and IMONLINE public keys in one large string, we need to split the string up. Each key has 32 bytes, the string is hex encoded, so each key has 64 characters. Each of the keys needs a prefix '0x' to indecate it is hex encoded. The output starts already with '0x' so the first key starts behind the '0x' and is 64 characters long. The second key starts at the 65 character, it has no '0x' prepend yet so we do that. The next key starts at character 130 and also needs a '0x' prefix. All keys should have the same length (32byte or 64 characters) and have a 0x as prefix. 
 
 Tip: Just use the script `utils/session_key_tools/split_session_key.sh` 
  
@@ -382,14 +435,12 @@ IM_ONLINE_SESSION_KEY=0x305a8ce33139a89753136bb5c77ebcc38ace19ebb27d96ad7a52c0ee
 Put the keys aside, you will need them in the next step. 
 
 
-## Connect to Polkadot-JS Development Front-End
+## 8. Setup Wallet & Connect to Polkadot-JS Development Front-End
 
-### Access the Front-End
-
-[Front-End](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fdevnet-rpc.worldmobilelabs.com%3A#/explorer)
+To set your session keys you need to send a transaction to the blockchain. The transaction registers the session keys with an EVM account. You need a wallet with your EVM account to send the needed transation, so we setup the Talisman wallet in the next step. 
 
 ### Setup Wallet and Restore Validator Account in Talisman
-In the next step we want to add our validator account to a wallet and connect with the development frontend. You can use another account as the one generated before to register the session keys but you need to set the session keys which belong to the validator.
+We want to add our account to a wallet and connect with the development frontend. You can use another account as the one generated for your validator to register the session keys but you need to set the correct session keys otherwise the validator cannot get identified.
 
 Please follow the instructions in the [Custom Account Guide](https://github.com/worldmobilegroup/aya-node/blob/main/docs/guide_custom_account.md) to install Talisman. 
 Than use the mnemonic generated earlier for your validator to restore the wallet in Talisman (or use another wallet). 
@@ -409,8 +460,11 @@ Refresh the Polkadot-JS development front-end, then connect the new wallet in Ta
 You need to get some FERN tokens from the faucet to pay for transaction fees. 
 Go to the [faucet](https://devnet-faucet.worldmobilelabs.com/) and request some. 
 
+### Access the Front-End
 
-## Become a Validator
+[Front-End](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fdevnet-rpc.worldmobilelabs.com%3A#/explorer)
+
+## 9. Set Session Keys
 
 To become a validator two more steps are needed. First you need to submit your session keys and second you need to let us know about your validator, so we can add it to the authority set. It takes two epochs after you were added to the authority set before you are part of the active, block producing authority set. An epoch last for 24 hours. If one of the session keys does not match the ones active in your validator, your validator cannot produce blocks and will be kicked from the authority set. 
 If you do not provide ImOnline messages during an epoch you are getting kicked two epochs later (this can happen when the IMONLINE key is wrong or your validator is offline). We can add you again so no worries, but we do not observe your validator status so you need to let us know.
@@ -458,7 +512,7 @@ Example Output:
 }
 ```
 
-### Register Validator
+## 10. Register Validator
 
 You have done all it needs, the only thing left is to let us know about your validator. Go to this [Form](https://forms.gle/RXjEqJuRGp9AwwBe9) and fill the information. We check twice a day (mornings and evenings in CET) for new validators and add them to the authority set. It takes two epochs until your validator joins the active authority set, an epoch is 24 hours so it can take 3 to 4 days before your validator becomes active. 
 
@@ -466,13 +520,12 @@ To fill the form you will need:
 - the fingerprint of you ENNFT on Cardano mainnet
 - the address you used to register you session keys
 - your valid email address
-- your discord usernmae
+- your discord username
 
 
-# Securing my Validator
+## 11. Securing my Validator
 
-We have setup a plain validator in this guide and connected it directly to the network. It is better to have the
-validator behind a full node (or two) which is exposed to the public, but our validator should only connect to that full
-node and not allow connections from the outside.
+We have setup a plain validator in this guide and connected it directly to the network. It is possible to have the
+validator behind a full node which is exposed to the public. The validator only connects to that full node in this case and not allow connections from the outside.
 
-This setup is fairly easy in substrate based chains. You setup a full node which connects to the network in the way described in this guide. All the key related steps can be ignored for a full node. When you setup your validator you do not give the public bootnode in the `--bootnodes` parameter, but your own full node. With additonal measuremeants (e.g. cloud firewall or ufw) you can limit the connections to your validator. Only the p2p port (default 30333) needs to be open if you want to connect to the validator with another node. For example we could open the port 30333 only for the internal network IP address of our full node.
+Setup a full node which connects to the network in the way described in this guide. All the key related steps can be ignored for a full node. When you setup your validator you do not give the public bootnode in the `--bootnodes` parameter, but your own full node. With additonal measuremeants (e.g. cloud firewall or ufw) you can limit the connections to your validator. Only the p2p port (default 30333) needs to be open if you want to connect to the validator with another node. For example we could open the port 30333 only for the internal network IP address of our full node.
