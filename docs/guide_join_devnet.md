@@ -245,7 +245,7 @@ Inspect:
 
 ## 5.1 Get EVM Account and Derived Keys
 
-**If you use the mnemonic without derivation throughout this guide, there is no need to execute this part 5. as you will restore the mnemonic in a wallet and have your address there. Anyway this part has useful information for key handling**
+**If you use the mnemonic without derivation throughout this guide, there is no need to execute this part 5.1 as you will restore the mnemonic in a wallet and have your address there. Anyway this part has useful information for key handling**
 
 Subkey / Aya-Node unfortunately do not give us all information as they cannot derive the EVM account. To calculate the EVM account from the mnemonic you can use the `get_keys.sh` script in the `utils/account_derivation_tools/scripts` folder of the aya-node repository. Be aware that the scripts expect `subkey` to be installed in `/usr/bin`. The script will create the EVM account with the address_index 0 only. See also the Readme in `utils/account_derivation_tools`.
 
@@ -442,27 +442,63 @@ To set your session keys you need to send a transaction to the blockchain. The t
 ### Setup Wallet and Restore Validator Account in Talisman
 We want to add our account to a wallet and connect with the development frontend. You can use another account as the one generated for your validator to register the session keys but you need to set the correct session keys otherwise the validator cannot get identified.
 
-Please follow the instructions in the [Custom Account Guide](https://github.com/worldmobilegroup/aya-node/blob/main/docs/guide_custom_account.md) to install Talisman. 
-Than use the mnemonic generated earlier for your validator to restore the wallet in Talisman (or use another wallet). 
+### Install Talisman
+To be able to interact with AyA's advanced functionallty, a wallet able to connect to polkadot-js is needed. MetaMask is not able to do this out of the box, we recommend to use the Talisman wallet for now.
 
-DevNet Public RPC Endpoint: devnet-rpc.worldmobilelabs.com
+**We will use the well known mnemonic from Alice for this tutorial as an example, this mnemonic is publicly known and should only be used for demonstration purposes:**
 
-It is possible to connect via https:// (ethereum rpc endpoints) or websocket wss:// (Substrate/Polkadot rpc endpoints).
-You need to add the network as well as ethereum network as well as polkadot network. 
-Polkadot-js front-end will use the websocket whereas the wallet will use the other. 
+```
+bottom drive obey lake curtain smoke basket hold race lonely fit walk
+```
+
+#### Install the Talisman Browser Extension
+
+Go to the [Talisman Website](https://www.talisman.xyz/) and follow the instructions to install the talisman wallet extension.
+
+#### Restore or Generate a EVM Wallet
+
+Use your mnemonic to restore the wallet in Talisman or create a new account. 
+
+#### Add AyA DevNet to Talisman
+
+DevNet Public RPC Endpoint: `devnet-rpc.worldmobilelabs.com`
+
+It is possible to connect via REST API `https://devnet-rpc.worldmobilelabs.com` or websocket `wss://devnet-rpc.worldmobilelabs.com`. We need to add the network as ethereum network as well as polkadot network to have full functionallity. Polkadot-js front-end will use the websocket whereas the wallet will use the REST Api. 
+
+In Talisman go to `Settings -> Networks & Tokens -> Manage Networks`
+![Talisman Settings](assets/talisman_settings.png)
+
+You can find two buttons to select the different network types `Ethereum` and `Polkadot`:
+![Talisman Network Types](assets/talisman_network_types.png)
+
+For each of the network types we need to add a network. Select the network type via the buttons and click `+ Add network` for each of them.
+
+Add the following network to Talisman (Ethereum):
+![AyA-DevNet RPC Endpoint Ethereum](assets/talisman_evm_network.png)
 
 Add the following Network to Talisman (Polkadot):
-![AyA-DevNet RPC Endpoint](assets/talisman_aya_devnet.png)
-
-Refresh the Polkadot-JS development front-end, then connect the new wallet in Talisman to the Polkadot-JS front end. You should see your account now and if the setup of the RPC endpoint worked correctly you are able to sign and submit transactions with that account.
+![AyA-DevNet RPC Endpoint Polkadot](assets/talisman_aya_devnet.png)
 
 ### Get FERN
 You need to get some FERN tokens from the faucet to pay for transaction fees. 
-Go to the [faucet](https://devnet-faucet.worldmobilelabs.com/) and request some. 
+Go to the [Faucet](https://devnet-faucet.worldmobilelabs.com/) paste your EVM account address and request some. 
+
+![Faucet](assets/faucet.png)
 
 ### Access the Front-End
 
+Go to the Polkadot-JS development front-end and connect your Talisman wallet and account to the Polkadot-JS front end. You should see your account now on the webiste when you navigate to [Accounts](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fdevnet-rpc.worldmobilelabs.com%3A#/accounts). If the setup of the RPC endpoints worked correctly you are able to sign and submit transactions with that account.
+
 [Front-End](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fdevnet-rpc.worldmobilelabs.com%3A#/explorer)
+
+Updating Metadata:
+
+In some cases you need to update the metadata on your wallet. 
+If that is needed a message will pop up in the front-end. Navigate to `Settings -> Metadata` and confirm the metadata update.
+
+![Upgrade Metadata MSG](assets/upgrade_metadata_msg.png)
+
+![Upgrade Metadata](assets/upgrade_metadata.png)
 
 ## 9. Set Session Keys
 
