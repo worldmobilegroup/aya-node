@@ -701,6 +701,8 @@ dependencies = [
  "jsonrpc-core-client",
  "jsonrpc-derive",
  "jsonrpsee",
+ "jsonrpsee-core",
+ "jsonrpsee-types",
  "log",
  "pallet-im-online",
  "pallet-transaction-payment",

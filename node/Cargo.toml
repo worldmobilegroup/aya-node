@@ -18,6 +18,8 @@ clap = { workspace = true }
 futures = { workspace = true }
 hex-literal = { workspace = true }
 jsonrpsee = { workspace = true, features = ["server", "macros"] }
+jsonrpsee-types = { workspace = true }	
+jsonrpsee-core = { workspace = true }
 log = { workspace = true }
 scale-codec = { workspace = true }
 serde_json = { workspace = true, features = ["arbitrary_precision"] }

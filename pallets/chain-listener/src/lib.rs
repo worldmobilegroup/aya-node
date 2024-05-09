@@ -19,12 +19,12 @@ pub mod pallet {
     use frame_support::{dispatch::DispatchResult, pallet_prelude::*, weights::Weight};
     use frame_system::{offchain::*, pallet_prelude::*};
     use scale_info::prelude::format;
+    use serde_json;
     use sp_consensus_aura::ed25519::AuthorityId;
     use sp_core::Public;
     use sp_runtime::offchain::*;
     use sp_runtime::offchain::{http, Duration};
     use sp_std::prelude::*;
-    use serde_json;
 
     #[pallet::config]
     pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
@@ -42,7 +42,6 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn offchain_worker(block_number: BlockNumberFor<T>) {
-
             if let Err(e) = Self::fetch_and_process_data() {
                 log::error!("Error fetching and sending data: {:?}", e);
             }
@@ -51,7 +50,7 @@ pub mod pallet {
 
             // let _ = Self::fetch_data(Self::construct_url("/api/info/address/stake/assets/"), STORAGE_KEY_ASSETS);
             // let _ = Self::fetch_data(Self::construct_url("/api/info/pools/1"), STORAGE_KEY_POOLS);
-            
+
             // Optionally process data immediately or at a different interval/trigger
             // let _ = Self::process_stored_data(STORAGE_KEY_ASSETS);
             // let _ = Self::process_stored_data(STORAGE_KEY_POOLS);
@@ -78,17 +77,20 @@ pub mod pallet {
         }
 
         fn process_stored_data(storage_key: &[u8]) -> Result<(), &'static str> {
-            if let Some(data) = sp_io::offchain::local_storage_get(sp_runtime::offchain::StorageKind::PERSISTENT, storage_key) {
-                let assets: Vec<Asset> = serde_json::from_slice(&data)
-                    .map_err(|_| "Failed to parse JSON data")?;
-                
+            if let Some(data) = sp_io::offchain::local_storage_get(
+                sp_runtime::offchain::StorageKind::PERSISTENT,
+                storage_key,
+            ) {
+                let assets: Vec<Asset> =
+                    serde_json::from_slice(&data).map_err(|_| "Failed to parse JSON data")?;
+
                 for asset in assets {
                     log::info!("Asset ID: {}, Quantity: {}", asset.asset_id, asset.quantity);
                 }
             }
             Ok(())
         }
-        
+
         fn fetch_data(url: &str, storage_key: &[u8]) -> Result<(), &'static str> {
             let request = http::Request::get(url);
             let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(8000));
@@ -97,20 +99,24 @@ pub mod pallet {
                 .deadline(deadline)
                 .send()
                 .map_err(|_| "Failed to send request")?;
-        
+
             let response = pending
                 .try_wait(deadline)
                 .map_err(|_| "Timeout while waiting for response")?
                 .map_err(|_| "Failed to receive response")?;
-        
+
             if response.code != 200 {
                 log::error!("Unexpected status code: {}", response.code);
                 return Err("Non-200 status code returned from API");
             }
-        
+
             let data = response.body().collect::<Vec<u8>>();
-            sp_io::offchain::local_storage_set(sp_runtime::offchain::StorageKind::PERSISTENT, storage_key, &data);
-        
+            sp_io::offchain::local_storage_set(
+                sp_runtime::offchain::StorageKind::PERSISTENT,
+                storage_key,
+                &data,
+            );
+
             Ok(())
         }
         fn fetch_address_stake_assets() -> Result<(), &'static str> {
@@ -142,9 +148,12 @@ pub mod pallet {
         }
 
         fn fetch_epoch_stake_amount(stake_addr: &str, epoch: u32) -> Result<(), &'static str> {
-            let url = Self::construct_url(&format!("/api/info/epoch/stake/amount/{}/{}", stake_addr, epoch));
+            let url = Self::construct_url(&format!(
+                "/api/info/epoch/stake/amount/{}/{}",
+                stake_addr, epoch
+            ));
             // let data = Self::fetch_data(&url)?;
-                // save to local storage queue
+            // save to local storage queue
             Ok(())
         }
 
@@ -156,7 +165,10 @@ pub mod pallet {
         }
 
         fn fetch_epoch_changes(from_epoch: u32, to_epoch: u32) -> Result<(), &'static str> {
-            let url = Self::construct_url(&format!("/api/aya/epoch/change/from/{}/{}", from_epoch, to_epoch));
+            let url = Self::construct_url(&format!(
+                "/api/aya/epoch/change/from/{}/{}",
+                from_epoch, to_epoch
+            ));
             // let data = Self::fetch_data(&url)?;
             // save to local storage queue
             Ok(())
@@ -224,10 +236,9 @@ pub mod pallet {
             // Perform fetch operations immediately
             // let _ = Self::fetch_data(Self::construct_url("/api/info/address/stake/assets/"), STORAGE_KEY_ASSETS);
             // let _ = Self::fetch_data(Self::construct_url("/api/info/pools/1"), STORAGE_KEY_POOLS);
-    
+
             Ok(())
         }
-
     }
 
     #[pallet::error]
@@ -282,4 +293,14 @@ pub mod pallet {
 //         Ok(())
 //     }
 // }
+// Consistency and Ordering
 
+//     Timestamps and Sequence Numbers:
+//         Assign timestamps or sequence numbers to each event as it's captured. This can help in maintaining the order when events are processed or compared across different nodes.
+//         Ensure that clocks are synchronized across nodes if using timestamps, or use a logical clock (like Lamport timestamps) to order events without relying on synchronized real-time clocks.
+
+//     Hash Chains:
+//         Each event could include the hash of the previous event. This creates a chain that inherently orders the events and adds an additional layer of integrity checking.
+
+//     Merkle Trees:
+//         Implement Merkle trees in your offchain storage to efficiently prove the existence and integrity of the events in your queue. This is particularly useful when you need to compare queues across nodes and quickly identify discrepancies.
