@@ -466,13 +466,16 @@ Go to the [faucet](https://devnet-faucet.worldmobilelabs.com/) and request some.
 
 ## 9. Set Session Keys
 
-To become a validator two more steps are needed. First you need to submit your session keys and second you need to let us know about your validator, so we can add it to the authority set. It takes two epochs after you were added to the authority set before you are part of the active, block producing authority set. An epoch last for 24 hours. If one of the session keys does not match the ones active in your validator, your validator cannot produce blocks and will be kicked from the authority set. 
+To become a validator two more steps are needed. First you need to submit your session keys and second you need to let us know about your validator, so we can add it to the authority set. It takes two epochs after you were added to the authority set before you are part of the active, block producing authority set. An epoch last for 24 hours. 
+
+If one of the session keys does not match the ones active in your validator, your validator cannot produce blocks and will be kicked from the authority set. 
 If you do not provide ImOnline messages during an epoch you are getting kicked two epochs later (this can happen when the IMONLINE key is wrong or your validator is offline). We can add you again so no worries, but we do not observe your validator status so you need to let us know.
 
 ### Submit Session Keys
 To submit the session keys you obtained in the step before you need a working Polkadot-JS front-end and your account needs to have funds to pay for transaction fees. The wallet registering the session keys does not need to be the one generated for the validator, but the session keys must match! Only you (the operator) should know your session keys when you triggered a rotation and only you should be able to rotate session keys. It is not possible to register the same session keys twice.
 
 Go to the [Front-End](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Fdevnet-rpc.worldmobilelabs.com%3A#/explorer) and navigate to `Developer -> Extrinsics`.
+
 ![DeveloperExtrinsic](assets/sessionKeys_developerExtrinsic.png)
 
 Select the validator account you imported into Talisman before.
