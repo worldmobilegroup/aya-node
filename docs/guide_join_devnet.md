@@ -216,7 +216,7 @@ You can use subkey or the aya-node binary to generate keys. If you want to use t
 ### Using subkey
 Please follow the official documentation to install subkey: [Subkey Docs](https://docs.substrate.io/reference/command-line-tools/subkey/)
 
-Copy the compiled subkey binary to `/usr/bin` to be able to use it from any location in the system:
+From the `polkadot-sdk` repository folder, copy the compiled subkey binary to `/usr/bin` to be able to use it from any location in the system:
 
 ```bash
 sudo cp ./target/release/subkey /usr/bin/
