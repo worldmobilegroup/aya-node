@@ -22,7 +22,7 @@ Install dependencies:
 sudo apt upgrade && sudo apt update
 sudo apt install -y git clang curl libssl-dev llvm libudev-dev make protobuf-compiler pkg-config build-essential
 ```
-## 3. Set up Build Envrionment
+## 3. Set up Build Environment
 
 Install Rust: 
 
@@ -151,27 +151,27 @@ Stop the aya-node again by pressing Ctrl+C.
 Next we create the systemd service:
 
 ```bash
-sudo nano /etc/systemd/system/aya-node.service
-```
-
-Copy the following content to the file and make sure to adjust the `/PATH/TO/` the file `start_aya_validator.sh` we created in the last step.
-**You should not run the service as root, please exchange the user to your prefered user on the system**
-```
+sudo tee /etc/systemd/system/aya-node.service > /dev/null <<EOF
+#Start the Aya validator
 [Unit]
 Description=AyA Node
 After=network.target
 
 [Service]
-ExecStart=/PATH/TO/start_aya_validator.sh
-User=root
+WorkingDirectory=${AYA_HOME}
+ExecStart="${AYA_HOME}"/start_aya_validator.sh
+User=${USER}
 Restart=always
 RestartSec=90
+#Set the maximum number of file descriptors
+LimitNOFILE=4096
 
 [Install]
 WantedBy=multi-user.target
+EOF
 ```
 
-Next we enable the service:
+Enable the service:
 ```bash
 sudo systemctl enable aya-node.service
 ```
@@ -277,9 +277,16 @@ Inspect:
 
 **If you use the mnemonic without derivation throughout this guide, there is no need to execute this part 5.1 as you will restore the mnemonic in a wallet and have your address there. Anyway this part has useful information for key handling**
 
-Subkey / Aya-Node unfortunately do not give us all information as they cannot derive the EVM account. To calculate the EVM account from the mnemonic you can use the `get_keys.sh` script in the `utils/account_derivation_tools/scripts` folder of the aya-node repository. Be aware that the scripts expect `subkey` to be installed in `/usr/bin`. The script will create the EVM account with the address_index 0 only. See also the Readme in `utils/account_derivation_tools`.
+Subkey / Aya-Node unfortunately do not give us all information as they cannot derive the EVM account. To calculate the EVM account from the mnemonic you can use the `validator_keys.sh` script in the `utils/account_derivation_tools/scripts` folder of the aya-node repository. Be aware that the scripts expect `subkey` to be installed in `/usr/bin`. The script will create the EVM account with the address_index 0 only. See also the Readme in `utils/account_derivation_tools`.
 
-First, install the dependencies (we assume you are on the projects root directory):
+You need to have npm and node js installed: 
+```bash
+sudo apt update
+sudo apt install nodejs
+sudo apt install npm
+```
+
+Next, install the dependencies (we assume you are on the projects root directory):
 
 ```bash
 cd utils/account_derivation_tools/tools/keys
@@ -291,7 +298,7 @@ Execute the script using your generated mnemonic as input parameter.
 
 Example: 
 ```bash
-./scripts/get_keys.sh "bottom drive obey lake curtain smoke basket hold race lonely fit walk"
+./scripts/validator_keys.sh "bottom drive obey lake curtain smoke basket hold race lonely fit walk"
 ``` 
 
 Example Output: 
