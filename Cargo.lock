@@ -678,6 +678,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "aya-runtime",
+ "chain-listener-rpc",
  "clap",
  "fc-api",
  "fc-cli",
@@ -752,6 +753,7 @@ name = "aya-runtime"
 version = "0.1.0"
 dependencies = [
  "chain-listener",
+ "chain-listener-runtime-api",
  "fp-account",
  "fp-evm",
  "fp-rpc",
@@ -1247,6 +1249,27 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.9.0)",
+]
+
+[[package]]
+name = "chain-listener-rpc"
+version = "1.0.0"
+dependencies = [
+ "chain-listener-runtime-api",
+ "jsonrpsee",
+ "jsonrpsee-types",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+]
+
+[[package]]
+name = "chain-listener-runtime-api"
+version = "1.0.0"
+dependencies = [
+ "sp-api",
+ "sp-runtime",
 ]
 
 [[package]]

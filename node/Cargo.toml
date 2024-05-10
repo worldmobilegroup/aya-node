@@ -89,6 +89,8 @@ fp-dynamic-fee = { workspace = true, features = ["default"] }
 fp-evm = { workspace = true, features = ["default"] }
 fp-rpc = { workspace = true, features = ["default"] }
 aya-runtime = { workspace = true, features = ["std"] }
+chain-listener-rpc = { version = "1.0.0", path = "../pallets/chain-listener/src/rpc" }
+
 
 [build-dependencies]
 substrate-build-script-utils = { workspace = true }

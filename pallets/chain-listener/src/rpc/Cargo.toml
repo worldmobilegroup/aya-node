@@ -1,0 +1,31 @@
+[package]
+name = "chain-listener-rpc"
+version = "1.0.0"
+edition = "2021"
+authors = ["Silvereau"]
+description = 'RPC methods for the chain-listener pallet'
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+scale-codec = { workspace = true }
+
+jsonrpsee = { workspace = true, features = ["server", "macros"] }
+jsonrpsee-types = { workspace = true }
+
+# Substrate packages
+sp-api =  { workspace = true }
+sp-blockchain =  { workspace = true }
+sp-runtime =  { workspace = true }
+
+# local packages
+chain-listener-runtime-api = { path = "./runtime-api", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+  "sp-api/std",
+  "sp-runtime/std",
+  "chain-listener-runtime-api/std"
+]

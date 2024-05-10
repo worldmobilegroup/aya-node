@@ -20,9 +20,7 @@ use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::Block as BlockT;
-pub mod cardano_follower;
-pub use self::cardano_follower::{CardanoFollowerRpc, CardanoFollowerRpcImpl};
-// Runtime
+
 use aya_runtime::{opaque::Block, AccountId, Balance, Hash, Nonce};
 
 mod eth;
@@ -54,6 +52,8 @@ where
         fc_rpc::frontier_backend_client::SystemAccountId20StorageOverride<Block, C, BE>;
 }
 
+use log::{debug, error, info, warn}; // Adjust according to what you need
+
 /// Instantiate all Full RPC extensions.
 pub fn create_full<C, P, BE, A, CT, CIDP>(
     deps: FullDeps<C, P, A, CT, CIDP>,
@@ -63,29 +63,15 @@ pub fn create_full<C, P, BE, A, CT, CIDP>(
             fc_mapping_sync::EthereumBlockNotification<Block>,
         >,
     >,
-) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
-where
-    C: ProvideRuntimeApi<Block> + BlockchainEvents<Block> + 'static,
-    C: CallApiAt<Block> + ProvideRuntimeApi<Block>,
-    C::Api: sp_block_builder::BlockBuilder<Block>,
-    C::Api: sp_consensus_aura::AuraApi<Block, AuraId>,
-    C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
-    C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
-    C::Api: fp_rpc::ConvertTransactionRuntimeApi<Block>,
-    C::Api: fp_rpc::EthereumRuntimeRPCApi<Block>,
-    C: HeaderBackend<Block> + HeaderMetadata<Block, Error = BlockChainError> + 'static,
-    C: BlockchainEvents<Block> + AuxStore + UsageProvider<Block> + StorageProvider<Block, BE>,
-    BE: Backend<Block> + 'static,
-    P: TransactionPool<Block = Block> + 'static,
-    A: ChainApi<Block = Block> + 'static,
-    CIDP: CreateInherentDataProviders<Block, ()> + Send + 'static,
-    CT: fp_rpc::ConvertTransaction<<Block as BlockT>::Extrinsic> + Send + Sync + 'static,
-{
-    use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
-    use sc_consensus_manual_seal::rpc::{ManualSeal, ManualSealApiServer};
-    use substrate_frame_rpc_system::{System, SystemApiServer};
+) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>> {
+    info!("Initializing RPC modules");
+    pub mod cardano_follower;
+    pub use self::cardano_follower::{CardanoFollowerRpc, CardanoFollowerRpcImpl};
+    use chain_listener::rpc::ChainListenerRpc;
 
     let mut io = RpcModule::new(());
+
+    debug!("Loading dependencies");
     let FullDeps {
         client,
         pool,
@@ -94,29 +80,28 @@ where
         eth,
     } = deps;
 
-    io.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
+    info!("Merging system and transaction payment RPCs");
+    io.merge(System::new(client.clone(), pool.clone(), deny_unsafe).into_rpc())?;
     io.merge(TransactionPayment::new(client.clone()).into_rpc())?;
-
+    io.merge(ChainListener::new(client).into_rpc())?;
     if let Some(command_sink) = command_sink {
-        io.merge(
-            // We provide the rpc handler with the sending end of the channel to allow the rpc
-            // send EngineCommands to the background block authorship task.
-            ManualSeal::new(command_sink).into_rpc(),
-        )?;
+        info!("Merging manual seal");
+        io.merge(ManualSeal::new(command_sink).into_rpc())?;
     }
 
-    // Ethereum compatibility RPCs
-    let mut io = create_eth::<_, _, _, _, _, _, _, DefaultEthConfig<C, BE>>(
-        io,
+    info!("Setting up Ethereum compatibility");
+    let eth_io = create_eth::<_, _, _, _, _, _, _, DefaultEthConfig<C, BE>>(
+        RpcModule::new(()),
         eth,
         subscription_task_executor,
         pubsub_notification_sinks,
     )?;
-    // It should be changed to this:
-    let cardano_rpc_module = CardanoFollowerRpcImpl{}.into_rpc();
-    
-    io.merge(cardano_rpc_module.clone())?;
+    io.merge(eth_io)?;
 
+    info!("Registering Cardano follower RPCs");
+    let cardano_follower = CardanoFollowerRpcImpl::new(deps.client.clone()); // Adjust based on actual constructor
+    io.merge(cardano_follower.into_rpc())?;
 
+    info!("RPC modules initialized successfully");
     Ok(io)
 }

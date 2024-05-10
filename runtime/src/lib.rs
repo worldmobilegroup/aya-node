@@ -1364,6 +1364,13 @@ impl_runtime_apis! {
         }
     }
 
+
+    impl chain_listener_runtime_api::ChainListenerApi<Block> for Runtime {
+        fn get_value() -> u32 {
+            ChainListener::get_value().unwrap_or(0)
+        }
+    }
+
     impl pallet_contracts::ContractsApi<Block, AccountId, Balance, BlockNumber, Hash, EventRecord> for Runtime
         {
             fn call(

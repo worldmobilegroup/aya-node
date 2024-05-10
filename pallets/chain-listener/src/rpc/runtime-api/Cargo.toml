@@ -1,0 +1,17 @@
+[package]
+name = "chain-listener-runtime-api"
+authors = ["Silvereau"]
+version = "1.0.0"
+edition = "2021"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+sp-api =  { workspace = true }
+sp-runtime = { workspace = true }
+[features]
+default = ["std"]
+std = [
+    "sp-api/std",
+]

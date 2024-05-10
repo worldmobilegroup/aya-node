@@ -16,8 +16,12 @@ pub use weights::*;
 
 #[frame_support::pallet]
 pub mod pallet {
-    use frame_support::{dispatch::DispatchResult, pallet_prelude::*, weights::Weight};
-    use frame_system::{offchain::*, pallet_prelude::*};
+    #[cfg(feature = "std")]
+    pub use frame_support::pallet_prelude::*;
+    use frame_support::{dispatch::DispatchResult, weights::Weight};
+    use frame_system::offchain::*;
+    #[cfg(feature = "std")]
+    pub use frame_system::pallet_prelude::*;
     use scale_info::prelude::format;
     use serde_json;
     use sp_consensus_aura::ed25519::AuthorityId;
@@ -25,6 +29,13 @@ pub mod pallet {
     use sp_runtime::offchain::*;
     use sp_runtime::offchain::{http, Duration};
     use sp_std::prelude::*;
+    use frame_support::pallet_prelude::IsType;
+    use frame_support::pallet_prelude::Hooks; 
+    use frame_system::pallet_prelude::BlockNumberFor;
+    use frame_system::pallet_prelude::OriginFor;
+    use frame_system::ensure_signed;
+    use frame_support::pallet_prelude::StorageValue;
+
 
     #[pallet::config]
     pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
@@ -240,6 +251,10 @@ pub mod pallet {
             Ok(())
         }
     }
+
+    #[pallet::storage]
+    #[pallet::getter(fn get_value)]
+    pub type Value<T> = StorageValue<_, u32>;
 
     #[pallet::error]
     pub enum Error<T> {
