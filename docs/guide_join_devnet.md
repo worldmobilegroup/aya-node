@@ -22,7 +22,7 @@ Install dependencies:
 sudo apt upgrade && sudo apt update
 sudo apt install -y git clang curl libssl-dev llvm libudev-dev make protobuf-compiler pkg-config build-essential
 ```
-## 3. Set up Build Envrionment
+## 3. Set up Build Environment
 
 Install Rust: 
 
@@ -151,27 +151,27 @@ Stop the aya-node again by pressing Ctrl+C.
 Next we create the systemd service:
 
 ```bash
-sudo nano /etc/systemd/system/aya-node.service
-```
-
-Copy the following content to the file and make sure to adjust the `/PATH/TO/` the file `start_aya_validator.sh` we created in the last step.
-**You should not run the service as root, please exchange the user to your prefered user on the system**
-```
+sudo tee /etc/systemd/system/aya-node.service > /dev/null <<EOF
+#Start the Aya validator
 [Unit]
 Description=AyA Node
 After=network.target
 
 [Service]
-ExecStart=/PATH/TO/start_aya_validator.sh
-User=root
+WorkingDirectory=${AYA_HOME}
+ExecStart="${AYA_HOME}"/start_aya_validator.sh
+User=${USER}
 Restart=always
 RestartSec=90
+#Set the maximum number of file descriptors
+LimitNOFILE=4096
 
 [Install]
 WantedBy=multi-user.target
+EOF
 ```
 
-Next we enable the service:
+Enable the service:
 ```bash
 sudo systemctl enable aya-node.service
 ```
@@ -277,9 +277,16 @@ Inspect:
 
 **If you use the mnemonic without derivation throughout this guide, there is no need to execute this part 5.1 as you will restore the mnemonic in a wallet and have your address there. Anyway this part has useful information for key handling**
 
-Subkey / Aya-Node unfortunately do not give us all information as they cannot derive the EVM account. To calculate the EVM account from the mnemonic you can use the `get_keys.sh` script in the `utils/account_derivation_tools/scripts` folder of the aya-node repository. Be aware that the scripts expect `subkey` to be installed in `/usr/bin`. The script will create the EVM account with the address_index 0 only. See also the Readme in `utils/account_derivation_tools`.
+Subkey / Aya-Node unfortunately do not give us all information as they cannot derive the EVM account. To calculate the EVM account from the mnemonic you can use the `validator_keys.sh` script in the `utils/account_derivation_tools/scripts` folder of the aya-node repository. Be aware that the scripts expect `subkey` to be installed in `/usr/bin`. The script will create the EVM account with the address_index 0 only. See also the Readme in `utils/account_derivation_tools`.
 
-First, install the dependencies (we assume you are on the projects root directory):
+You need to have npm and node js installed: 
+```bash
+sudo apt update
+sudo apt install nodejs
+sudo apt install npm
+```
+
+Next, install the dependencies (we assume you are on the projects root directory):
 
 ```bash
 cd utils/account_derivation_tools/tools/keys
@@ -291,7 +298,7 @@ Execute the script using your generated mnemonic as input parameter.
 
 Example: 
 ```bash
-./scripts/get_keys.sh "bottom drive obey lake curtain smoke basket hold race lonely fit walk"
+./scripts/validator_keys.sh "bottom drive obey lake curtain smoke basket hold race lonely fit walk"
 ``` 
 
 Example Output: 
@@ -593,8 +600,28 @@ To fill the form you will need:
 
 
 ## 11. Securing my Validator
-
 We have setup a plain validator in this guide and connected it directly to the network. It is possible to have the
 validator behind a full node which is exposed to the public. The validator only connects to that full node in this case and not allow connections from the outside.
 
 Setup a full node which connects to the network in the way described in this guide. All the key related steps can be ignored for a full node. When you setup your validator you do not give the public bootnode in the `--bootnodes` parameter, but your own full node. With additonal measuremeants (e.g. cloud firewall or ufw) you can limit the connections to your validator. Only the p2p port (default 30333) needs to be open if you want to connect to the validator with another node. For example we could open the port 30333 only for the internal network IP address of our full node.
+
+## Firewall
+The p2p port `30333` needs to be open so your Validator can communicate, either with only your full node or the entire network.  
+Make sure the port is open in your cloud / network configuration.
+
+### Set Up UFW Firewall
+To allow port `30333` and ssh access in ufw on your Validator do:
+```bash
+sudo ufw allow 30333
+sudo ufw allow ssh
+```
+
+The RPC port on your Validator should be blocked from the outside:
+```bash
+sudo ufw deny 9944
+```
+
+Enable the firewall:
+```bash
+sufo ufw enable
+```
