@@ -600,8 +600,28 @@ To fill the form you will need:
 
 
 ## 11. Securing my Validator
-
 We have setup a plain validator in this guide and connected it directly to the network. It is possible to have the
 validator behind a full node which is exposed to the public. The validator only connects to that full node in this case and not allow connections from the outside.
 
 Setup a full node which connects to the network in the way described in this guide. All the key related steps can be ignored for a full node. When you setup your validator you do not give the public bootnode in the `--bootnodes` parameter, but your own full node. With additonal measuremeants (e.g. cloud firewall or ufw) you can limit the connections to your validator. Only the p2p port (default 30333) needs to be open if you want to connect to the validator with another node. For example we could open the port 30333 only for the internal network IP address of our full node.
+
+## Firewall
+The p2p port `30333` needs to be open so your Validator can communicate, either with only your full node or the entire network.  
+Make sure the port is open in your cloud / network configuration.
+
+### Set Up UFW Firewall
+To allow port `30333` and ssh access in ufw on your Validator do:
+```bash
+sudo ufw allow 30333
+sudo ufw allow ssh
+```
+
+The RPC port on your Validator should be blocked from the outside:
+```bash
+sudo ufw deny 9944
+```
+
+Enable the firewall:
+```bash
+sufo ufw enable
+```
