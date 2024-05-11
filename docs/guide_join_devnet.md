@@ -448,6 +448,7 @@ If your node is running correctly you can trigger a key rotation via the local R
 ```bash
 curl -H "Content-Type: application/json" -d '{"id":1, "jsonrpc":"2.0", "method": "author_rotateKeys"}' http://localhost:9944/
 ```
+**ATTENTION: This endpoint triggers your key rotation! Calling it means rotating your keys! Do not call it again after you set your keys already (Step 9), otherwise you invalidate them and need to set the keys again. The RPC API must be locked due to this reason and only accessible by the node operator, so no unintentionally key rotation is performed.**
 
 Example Output: 
 ```
