@@ -8,7 +8,7 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_use]
-extern crate frame_benchmarking;// Frontier
+extern crate frame_benchmarking; // Frontier
 use fp_account::EthereumSignature;
 use fp_evm::weight_per_gas;
 use fp_rpc::TransactionStatus;
@@ -17,11 +17,11 @@ use frame_support::{
     dynamic_params::dynamic_pallet_params,
     dynamic_params::dynamic_params,
     genesis_builder_helper::{build_config, create_default_config},
-    pallet_prelude::DispatchClass,
+    pallet_prelude::{DispatchClass, MaxEncodedLen},
     parameter_types,
     traits::{
         AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU8, EnsureOriginWithArg,
-        FindAuthor, Nothing, OnFinalize, OnTimestampSet,
+        FindAuthor, InstanceFilter, Nothing, OnFinalize, OnTimestampSet,
     },
     weights::{
         constants::{BlockExecutionWeight, ExtrinsicBaseWeight, WEIGHT_REF_TIME_PER_MILLIS},
@@ -46,30 +46,30 @@ use pallet_evm::{
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 pub use pallet_timestamp::Call as TimestampCall;
-use pallet_transaction_payment::{ConstFeeMultiplier, CurrencyAdapter};
 use pallet_transaction_payment::Multiplier;
+use pallet_transaction_payment::{ConstFeeMultiplier, CurrencyAdapter};
 use scale_codec::{Decode, Encode};
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
 use sp_core::{
     crypto::{ByteArray, KeyTypeId},
-    H160, H256, OpaqueMetadata, U256,
+    OpaqueMetadata, H160, H256, U256,
 };
 use sp_runtime::{
-    ApplyExtrinsicResult, ConsensusEngineId,
-    create_runtime_str,
-    ExtrinsicInclusionMode,
-    generic,
+    create_runtime_str, generic,
     generic::Era,
-    impl_opaque_keys, Perbill, Permill, SaturatedConversion, traits::{
-        BlakeTwo256, Block as BlockT, Dispatchable, DispatchInfoOf, Get, IdentifyAccount,
+    impl_opaque_keys,
+    traits::{
+        BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, Get, IdentifyAccount,
         IdentityLookup, NumberFor, One, OpaqueKeys, PostDispatchInfoOf, UniqueSaturatedInto,
         Verify,
     },
     transaction_validity::{
         TransactionPriority, TransactionSource, TransactionValidity, TransactionValidityError,
     },
+    ApplyExtrinsicResult, ConsensusEngineId, ExtrinsicInclusionMode, Perbill, Permill,
+    SaturatedConversion,
 };
 use sp_std::{marker::PhantomData, prelude::*};
 use sp_version::RuntimeVersion;
@@ -272,6 +272,78 @@ impl frame_system::Config for Runtime {
     /// The set code logic, just the default since we're not a parachain.
     type OnSetCode = ();
     type MaxConsumers = ConstU32<16>;
+}
+
+parameter_types! {
+    // One storage item; key size 32, value size 8; .
+    pub const ProxyDepositBase: Balance = deposit(1, 8);
+    // Additional storage item size of 33 bytes.
+    pub const ProxyDepositFactor: Balance = deposit(0, 33);
+    pub const AnnouncementDepositBase: Balance = deposit(1, 8);
+    pub const AnnouncementDepositFactor: Balance = deposit(0, 66);
+}
+
+/// The type used to represent the kinds of proxying allowed.
+#[derive(
+    Copy,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Encode,
+    Decode,
+    Debug,
+    //    RuntimeDebug,
+    MaxEncodedLen,
+    scale_info::TypeInfo,
+)]
+pub enum ProxyType {
+    Any,
+    NonTransfer,
+}
+impl Default for ProxyType {
+    fn default() -> Self {
+        Self::Any
+    }
+}
+impl InstanceFilter<RuntimeCall> for ProxyType {
+    fn filter(&self, c: &RuntimeCall) -> bool {
+        match self {
+            ProxyType::Any => true,
+            ProxyType::NonTransfer => !matches!(
+                c,
+                RuntimeCall::Balances(..)
+                    | RuntimeCall::Assets(..)
+                    | RuntimeCall::Uniques(..)
+                    | RuntimeCall::Indices(pallet_indices::Call::transfer { .. })
+            ),
+        }
+    }
+    fn is_superset(&self, o: &Self) -> bool {
+        match (self, o) {
+            (x, y) if x == y => true,
+            (ProxyType::Any, _) => true,
+            (_, ProxyType::Any) => false,
+            (ProxyType::NonTransfer, _) => true,
+            //_ => false,
+        }
+    }
+}
+
+impl pallet_proxy::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
+    type Currency = Balances;
+    type ProxyType = ProxyType;
+    type ProxyDepositBase = ProxyDepositBase;
+    type ProxyDepositFactor = ProxyDepositFactor;
+    type MaxProxies = ConstU32<32>;
+    type WeightInfo = pallet_proxy::weights::SubstrateWeight<Runtime>;
+    type MaxPending = ConstU32<32>;
+    type CallHasher = BlakeTwo256;
+    type AnnouncementDepositBase = AnnouncementDepositBase;
+    type AnnouncementDepositFactor = AnnouncementDepositFactor;
 }
 
 parameter_types! {
@@ -766,6 +838,7 @@ impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
 frame_support::construct_runtime!(
     pub enum Runtime {
         System: frame_system,
+        Proxy: pallet_proxy,
         Timestamp: pallet_timestamp,
         Balances: pallet_balances,
         ValidatorSet: substrate_validator_set,
