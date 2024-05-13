@@ -17,7 +17,7 @@ use frame_support::{
     dynamic_params::dynamic_pallet_params,
     dynamic_params::dynamic_params,
     genesis_builder_helper::{build_config, create_default_config},
-    pallet_prelude::{DispatchClass, MaxEncodedLen},
+    pallet_prelude::{DispatchClass, MaxEncodedLen, RuntimeDebug},
     parameter_types,
     traits::{
         AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU8, EnsureOriginWithArg,
@@ -293,8 +293,7 @@ parameter_types! {
     PartialOrd,
     Encode,
     Decode,
-    Debug,
-    //    RuntimeDebug,
+    RuntimeDebug,
     MaxEncodedLen,
     scale_info::TypeInfo,
 )]
@@ -317,6 +316,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                     | RuntimeCall::Assets(..)
                     | RuntimeCall::Uniques(..)
                     | RuntimeCall::Indices(pallet_indices::Call::transfer { .. })
+                    | RuntimeCall::Session(..)
             ),
         }
     }
@@ -326,7 +326,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
             (ProxyType::Any, _) => true,
             (_, ProxyType::Any) => false,
             (ProxyType::NonTransfer, _) => true,
-            //_ => false,
+            _ => false,
         }
     }
 }
