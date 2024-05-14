@@ -1,4 +1,3 @@
-# Thank you Rick!
 # Join the World Mobile DevNet
 
 Welcome, lets start!
@@ -23,83 +22,91 @@ Install dependencies:
 sudo apt upgrade && sudo apt update
 sudo apt install -y git clang curl libssl-dev llvm libudev-dev make protobuf-compiler pkg-config build-essential
 ```
+## 3. Set up Build Environment
 
-### Firewall
-The p2p port `30333` needs to be open so your Validator can communicate, either with only your full node or the entire network.  
-Make sure the port is open in your cloud / network configuration.
+Install Rust: 
 
-### Set Up UFW Firewall
-To allow port `30333` and ssh access in ufw on your Validator do:
 ```bash
-sudo ufw allow 30333
-sudo ufw allow ssh
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+Proceed with option 1 "Standard Installation" in the prompt, just hit enter. 
+
+Get Rust enviornment into terminal session:
+```bash
+source $HOME/.cargo/env
 ```
 
-The RPC port on your Validator should be blocked from the outside:
+Check Rust is installed correctly
 ```bash
-sudo ufw deny 9944
+rustc --version
 ```
 
-Enable the firewall:
+Configure Rust toolchain: 
 ```bash
-sudo ufw enable
+rustup default stable
+rustup component add rust-src --toolchain stable-x86_64-unknown-linux-gnu
+rustup target add wasm32-unknown-unknown
+rustup update
 ```
 
-## 3. Install Aya-Node
+Configure Rust Nighly (Nighly is needed to build subkey, it can be skipped if you don't want to compile subkey but subkey is expected if you want to use the scripts in the utils folder of the aya-node repository.)
+```bash
+rustup update nightly
+rustup target add wasm32-unknown-unknown --toolchain nightly
+```
+
+Check Rust Installation:
+```bash
+rustup show
+rustup +nightly show
+```
+
+### 3.1 Build AyA-Node from Source Code
+
+We recommend to compile the aya-node not on a small virtual machine as this can take quite some time. Instead build the aya-node on your local machine and copy the binary to the server. 
+
+Clone the AyA-Node Repository:
+```bash
+git clone https://github.com/worldmobilegroup/aya-node.git
+cd aya-node
+```
+
+For DevNet we checkout the devnet version of the aya-node and create a new local branch: 
+```bash
+git checkout tags/devnet-v.0.2.0 -b my-devnet-branch
+```
+
+Compile the AyA-Node:
+```bash
+cargo build --release
+```
+
+***Additional Information***
+
+If you want to update your local github repository and work with another branch you can do that for example:
+
+```bash
+git checkout main
+git pull origin main
+```
+
+If you want to merge the changes of another branch into your local branch, for example `main` into your `my-devnet-branch`, you can do that with: 
+```bash
+git checkout my-devnet-branch
+git merge main
+```
+For more information on git see: [A beginner's guide to Git version control](https://developers.redhat.com/articles/2023/08/02/beginners-guide-git-version-control#)
+
+### 3.2 Use Precompiled Binaries
+
+If you do not want to build the aya-node from source, you can use the precompiled binaries: 
 
 [Release DevNet AyA Node v0.2.0](https://github.com/worldmobilegroup/aya-node/releases/tag/devnet-v.0.2.0)
 
-Download and copy the `aya-node` and `wm-devnet-chainspec.json` files to your server. The guide aims to be compatible with building from source code so we will adjust file paths. To get the same folder structure as for the build from source option, create the folder `aya-node/target/release` and copy the `aya-node` binary into it. The `wm-devnet-chainspec.json` would be expected in the folder `aya-node/`
-
-```bash
-cd /home/${USER}
-mkdir -p aya-node/target/release
-cd aya-node
-wget https://github.com/worldmobilegroup/aya-node/releases/download/devnet-v.0.2.0/wm-devnet-chainspec.json
-wget -P target/release https://github.com/worldmobilegroup/aya-node/releases/download/devnet-v.0.2.0/aya-node
-chmod +x target/release/aya-node
-```
-
-We also need to create the script that we will use later to split our rotated session keys.
-
-```bash
-mkdir -p utils/session_key_tools
-nano utils/session_key_tools/split_session_key.sh
-```
-
-
-Paste in the following text into Nano and save with CTRL-X
-```bash
-#!/usr/bin/env bash
-set -e
-
-if [[ $# -ne 1 ]]; then
-    echo "Please provide a session key as parameter to the script!"
-    exit 1
-else
-    SESSION_KEY=$1
-    if [[ ! ${#SESSION_KEY} -eq 194 ]]; then
-        echo "Please provide a valid session key!"
-        exit 1
-    fi
-fi
-
-echo "------------------------------------"
-echo "Your session keys:"
-echo AURA_SESSION_KEY=${SESSION_KEY:0:66}
-echo GRANDPA_SESSION_KEY=0x${SESSION_KEY:66:64}
-echo IM_ONLINE_SESSION_KEY=0x${SESSION_KEY:130:64}
-echo "------------------------------------"
-```
-Now make the file executable
-```bash
-chmod +x utils/session_key_tools/split_session_key.sh
-```
-
-
+Download and copy the `aya-node` and `wm-devnet-chainspec.json` files to your server. The guide assumes you built from source so make sure you adjust file paths. To get the same folder structure as for the build from source option, create the folder `aya-node/target/release` and copy the `aya-node` binary into it. The `wm-devnet-chainspec.json` would be expected in the folder `aya-node/`.
 
 ## 4. Setting Up systemd
-We want our validator to start automatically with the server and be restarted automatically. For that purpose we create a systemd service (Ubuntu 22.04).
+We want that our validator starts automatically with the server and is restarted automatically. For that purpose we create a systemd service (Ubuntu 22.04).
 
 First we create a startup script for the AyA-Node.
 
@@ -130,8 +137,6 @@ echo "${AYA_HOME}/target/release/aya-node \
     --bootnodes /dns/devnet-rpc.worldmobilelabs.com/tcp/30340/ws/p2p/12D3KooWRWZpEJygTo38qwwutM1Yo7dQQn8xw1zAAWpfMiAqbmyK" >> start_aya_validator.sh
 sudo chmod +x ./start_aya_validator.sh
 ```
-
-`NOTE: If you want to set up a second Aya DevNet Node at the same external address use a different port eg: 30334`
 
 Let us test that the validator starts by executing the script we just created
 ```bash
@@ -206,13 +211,27 @@ If you just want to setup a full node you can stop here.
 ## 5. Prepare Key Setup
 **The mnemonic used in this tutorial is an EXAMPLE and is PUBLICLY USED for ALICE, BOB,... DO NOT USE it; Replace *"bottom drive obey lake curtain smoke basket hold race lonely fit walk"* with your own generated mnemonic.** 
 
+You can use subkey or the aya-node binary to generate keys. If you want to use the scripts in the utils folder of the aya-node repository you need to install subkey.  
 
-### Using the Aya-Node Binary to generate keys
-Keys can be generated and inspected with the aya-node binary
+### Using subkey
+Please follow the official documentation to install subkey: [Subkey Docs](https://docs.substrate.io/reference/command-line-tools/subkey/)
 
-Generate key:
+From the `polkadot-sdk` repository folder, copy the compiled subkey binary to `/usr/bin` to be able to use it from any location in the system:
+
 ```bash
-./target/release/aya-node key generate
+sudo cp ./target/release/subkey /usr/bin/
+```
+
+Check subkey is installed:
+```bash
+subkey --version
+```
+
+You can delete the polkadot-sdk repository when subkey works as expected. It is very big and not needed anymore. 
+
+Creating a new key: 
+```bash
+subkey generate
 ```
 
 Example Output: 
@@ -226,11 +245,139 @@ Secret phrase:       bottom drive obey lake curtain smoke basket hold race lonel
   SS58 Address:      5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY
 ```
 
+The command `subkey inspect` will produce the same reuslt but the mnemonic is given as input parameter.
 
-Inspect key:
+```bash 
+subkey inspect "bottom drive obey lake curtain smoke basket hold race lonely fit walk"
+```
+
+
+***Additional Information:***
+
+*You can derive accounts like this:*
+```bash 
+subkey inspect "bottom drive obey lake curtain smoke basket hold race lonely fit walk//Alice"
+```
+*It will produce the well known account of Alice. `//` Does a hard derivation `/` a soft derivation*
+
+### Using the Aya-Node Binary to generate keys
+Keys can also be generated and inspected with the aya-node binary
+
+Generate:
+```bash
+./target/release/aya-node key generate
+```
+
+Inspect:
 ```bash
 ./target/release/aya-node key inspect "bottom drive obey lake curtain smoke basket hold race lonely fit walk"
 ```
+
+## 5.1 Get EVM Account and Derived Keys
+
+**If you use the mnemonic without derivation throughout this guide, there is no need to execute this part 5.1 as you will restore the mnemonic in a wallet and have your address there. Anyway this part has useful information for key handling**
+
+Subkey / Aya-Node unfortunately do not give us all information as they cannot derive the EVM account. To calculate the EVM account from the mnemonic you can use the `validator_keys.sh` script in the `utils/account_derivation_tools/scripts` folder of the aya-node repository. Be aware that the scripts expect `subkey` to be installed in `/usr/bin`. The script will create the EVM account with the address_index 0 only. See also the Readme in `utils/account_derivation_tools`.
+
+You need to have npm and node js installed: 
+```bash
+sudo apt update
+sudo apt install nodejs
+sudo apt install npm
+```
+
+Next, install the dependencies (we assume you are on the projects root directory):
+
+```bash
+cd utils/account_derivation_tools/tools/keys
+npm i
+cd ../..
+```
+
+Execute the script using your generated mnemonic as input parameter.
+
+Example: 
+```bash
+./scripts/validator_keys.sh "bottom drive obey lake curtain smoke basket hold race lonely fit walk"
+``` 
+
+Example Output: 
+```
+Processing account:
+
+sr25519
+
+Secret phrase:       bottom drive obey lake curtain smoke basket hold race lonely fit walk
+  Network ID:        substrate
+  Secret seed:       0xfac7959dbfe72f052e5a0c3c8d6530f202b02fd8f9f5ca3580ec8deb7797479e
+  Public key (hex):  0x46ebddef8cd9bb167dc30878d7113b7e168e6f0646beffd77d69d39bad76b47a
+  Account ID:        0x46ebddef8cd9bb167dc30878d7113b7e168e6f0646beffd77d69d39bad76b47a
+  Public key (SS58): 5DfhGyQdFobKM8NsWvEeAKk5EQQgYe9AydgJ7rMB6E1EqRzV
+  SS58 Address:      5DfhGyQdFobKM8NsWvEeAKk5EQQgYe9AydgJ7rMB6E1EqRzV
+
+ed25519
+
+Secret phrase:       bottom drive obey lake curtain smoke basket hold race lonely fit walk
+  Network ID:        substrate
+  Secret seed:       0xfac7959dbfe72f052e5a0c3c8d6530f202b02fd8f9f5ca3580ec8deb7797479e
+  Public key (hex):  0x345071da55e5dccefaaa440339415ef9f2663338a38f7da0df21be5ab4e055ef
+  Account ID:        0x345071da55e5dccefaaa440339415ef9f2663338a38f7da0df21be5ab4e055ef
+  Public key (SS58): 5DFJF7tY4bpbpcKPJcBTQaKuCDEPCpiz8TRjpmLeTtweqmXL
+  SS58 Address:      5DFJF7tY4bpbpcKPJcBTQaKuCDEPCpiz8TRjpmLeTtweqmXL
+
+Compressed EVM key: 	0xf24FF3a9CF04c71Dbc94D0b566f7A27B94566cac
+Private key: 			0x5fb92d6e98884f76de468fa3f6278f8807c48bebc13595d45af5bdc4da702133
+
+------------
+```
+
+You can also get the comprressed EVM key by restoring the mnemonic in a ethereum wallet e.g. MetaMask or Talisman. You can choose in the wallet what address_indexes you want to add.
+
+
+***Additional Information:***
+
+If you want to use a derived key the sr25519 and the ed25519 private keys will be different.
+To calculate a EVM address you need to know the derivation path and for some derivation path you cannot calculate an EVM account.
+EVM accounts use the derivation path `m//44//60//0/0/<address_index>`, see [BIP44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki) for more information.
+You can use a different mnemonic to register your session keys, for example using a hardware wallet. 
+
+You can derive a key from your mnemonic only you know. 
+
+For example to get AURA and IM_ONLINE Key: 
+```bash
+subkey inspect --scheme sr25519 "bottom drive obey lake curtain smoke basket hold race lonely fit walk//My//Secret//Derivation//Path"
+```
+
+For example to get a GRANDPA Key:
+```bash
+subkey inspect --scheme ed25519 "bottom drive obey lake curtain smoke basket hold race lonely fit walk//My//Secret//Derivation//Path"
+```
+
+This would result in the following private keys for your validator: 
+```
+sr25519
+
+Secret Key URI `bottom drive obey lake curtain smoke basket hold race lonely fit walk//My//Secret//Derivation//Path` is account:
+  Network ID:        substrate
+  Secret seed:       0xd159936a485167ec22d29876190adb9f8ed08879a28b46f9ee075ef3dcd7b4f2
+  Public key (hex):  0x00209b81aef17a150140d06979eb54bb23d8f7f72a25d7a1b429c72cdf19f555
+  Account ID:        0x00209b81aef17a150140d06979eb54bb23d8f7f72a25d7a1b429c72cdf19f555
+  Public key (SS58): 5C4sYUugQF27DktbzXhSVJNuMtJrFVvPP61bumtvTYKmTqak
+  SS58 Address:      5C4sYUugQF27DktbzXhSVJNuMtJrFVvPP61bumtvTYKmTqak
+
+ed25519
+
+Secret Key URI `bottom drive obey lake curtain smoke basket hold race lonely fit walk//My//Secret//Derivation//Path` is account:
+  Network ID:        substrate
+  Secret seed:       0xd64f614f9a1c218a43e7a066e8676dd23ef2ccab82232dae7180af50f788e376
+  Public key (hex):  0x579f175039ffaad0740f6e578235940a0e6ef0e8f3a9554334e2cf475fb38f6d
+  Account ID:        0x579f175039ffaad0740f6e578235940a0e6ef0e8f3a9554334e2cf475fb38f6d
+  Public key (SS58): 5E3bHNRo6pxpUetjZxZ5XWGaPcRF7RM7ZUbySuiLPZ1cjp3G
+  SS58 Address:      5E3bHNRo6pxpUetjZxZ5XWGaPcRF7RM7ZUbySuiLPZ1cjp3G
+```
+
+The derivation path `//My//Secret//Derivation//Path` cannot give us valid EVM account, so we would use a different account for the session key registration.
+
 
 ## 6. Set Validator Private Keys
 
@@ -238,16 +385,14 @@ Inspect key:
 
 To setup the validator we need to add the secret keys to the keyring on the validator machine. On the machine running the validator, navigate to the `aya-node` folder.
 
-```bash
-cd /home/${USER}/aya-node
-```
-
-We need to add three keys: the AURA_KEY, GRANDPA_KEY and IM_ONLINE_KEY.  For a simple set up these three keys are the same.  In a more complicated set up you may want to use key derivation, in which case the secret seeds of the ed25519 and sr25519 scheme might differ! The AURA_KEY and IM_ONLINE_KEY is the same sr25519 secret seed, the GRANDPA_KEY is the ed25519 secret seed.  
+We need to add three keys: the AURA_KEY, GRANDPA_KEY and IM_ONLINE_KEY. Depending on the key derivation, the secret seeds of the ed25519 and sr25519 scheme might differ! The AURA_KEY and IM_ONLINE_KEY is the same sr25519 secret seed, the GRANDPA_KEY is the ed25519 secret seed. In this example the secret seeds are the same because we did not derived a key. 
 You also need to set the base path of the node, the path were all data for the node is stored. We use `data/validator`, make sure the path is accessible. 
 
-Enter your Secret Seed keys from Step 5 above:  ( REPLACE THIS EXAMPLE SECRET SEED WITH YOUR OWN!! )
+Set keys to environment variables or enter directly at the `--suri` parameter:
 ```bash
-export SECRET_SEED=0xfac7959dbfe72f052e5a0c3c8d6530f202b02fd8f9f5ca3580ec8deb7797479e
+export AURA_KEY=0xfac7959dbfe72f052e5a0c3c8d6530f202b02fd8f9f5ca3580ec8deb7797479e
+export GRANDPA_KEY=0xfac7959dbfe72f052e5a0c3c8d6530f202b02fd8f9f5ca3580ec8deb7797479e
+export IM_ONLINE_KEY=0xfac7959dbfe72f052e5a0c3c8d6530f202b02fd8f9f5ca3580ec8deb7797479e
 ```
 
 ```bash
@@ -256,21 +401,21 @@ export SECRET_SEED=0xfac7959dbfe72f052e5a0c3c8d6530f202b02fd8f9f5ca3580ec8deb779
     --chain wm-devnet-chainspec.json \
     --key-type aura \
     --scheme sr25519 \
-    --suri "${SECRET_SEED}";
+    --suri "${AURA_KEY}";
 
 ./target/release/aya-node key insert \
     --base-path data/validator \
     --chain wm-devnet-chainspec.json \
     --key-type gran \
     --scheme ed25519 \
-    --suri "${SECRET_SEED}";
+    --suri "${GRANDPA_KEY}";
     
 ./target/release/aya-node key insert \
     --base-path data/validator \
     --chain wm-devnet-chainspec.json \
     --key-type imon \
     --scheme sr25519 \
-    --suri "${SECRET_SEED}";
+    --suri "${IM_ONLINE_KEY}";
 ```
 
 Check if keys were added:
@@ -306,13 +451,13 @@ curl -H "Content-Type: application/json" -d '{"id":1, "jsonrpc":"2.0", "method":
 **ATTENTION: This endpoint triggers your key rotation! Calling it means rotating your keys! Do not call it again after you set your keys already (Step 9), otherwise you invalidate them and need to set the keys again. The RPC API must be locked due to this reason and only accessible by the node operator, so no unintentionally key rotation is performed.**
 
 Example Output: 
-`
-{"jsonrpc":"2.0","result":"0x42ad00eae2336671febcce956db3e5716b4ad7fb3cc8bb576463882f3b3eab256091e0b8a8e08eef8b13153a05800712a4b661a3470f817dc002fd3c63649f26305a8ce33139a89753136bb5c77ebcc38ace19ebb27d96ad7a52c0ee5ebebc77","id":1}
-`
+```
+0x42ad00eae2336671febcce956db3e5716b4ad7fb3cc8bb576463882f3b3eab256091e0b8a8e08eef8b13153a05800712a4b661a3470f817dc002fd3c63649f26305a8ce33139a89753136bb5c77ebcc38ace19ebb27d96ad7a52c0ee5ebebc77
+```
 
 The output contains the AURA, GRANDPA and IMONLINE public keys in one large string, we need to split the string up. Each key has 32 bytes, the string is hex encoded, so each key has 64 characters. Each of the keys needs a prefix '0x' to indecate it is hex encoded. The output starts already with '0x' so the first key starts behind the '0x' and is 64 characters long. The second key starts at the 65 character, it has no '0x' prepend yet so we do that. The next key starts at character 130 and also needs a '0x' prefix. All keys should have the same length (32byte or 64 characters) and have a 0x as prefix. 
 
-Tip: Just use the script `./utils/session_key_tools/split_session_key.sh` 
+Tip: Just use the script `utils/session_key_tools/split_session_key.sh` 
  
 Example: 
 ```
@@ -348,10 +493,9 @@ bottom drive obey lake curtain smoke basket hold race lonely fit walk
 
 Go to the [Talisman Website](https://www.talisman.xyz/) and follow the instructions to install the talisman wallet extension.
 
-#### Restore or Generate a Ethereum Wallet
+#### Restore or Generate a EVM Wallet
 
-Use your mnemonic seed to restore the wallet in Talisman or create a new Ethereum account. 
-![Import_Wallet](assets/account_type.png)
+Use your mnemonic to restore the wallet in Talisman or create a new account. 
 
 #### Add AyA DevNet to Talisman
 
@@ -361,8 +505,6 @@ It is possible to connect via REST API `https://devnet-rpc.worldmobilelabs.com` 
 
 In Talisman go to `Settings -> Networks & Tokens -> Manage Networks`
 ![Talisman Settings](assets/talisman_settings.png)
-
-Make sure you check `Enable testnets`
 
 You can find two buttons to select the different network types `Ethereum` and `Polkadot`:
 ![Talisman Network Types](assets/talisman_network_types.png)
@@ -463,3 +605,24 @@ We have setup a plain validator in this guide and connected it directly to the n
 validator behind a full node which is exposed to the public. The validator only connects to that full node in this case and not allow connections from the outside.
 
 Setup a full node which connects to the network in the way described in this guide. All the key related steps can be ignored for a full node. When you setup your validator you do not give the public bootnode in the `--bootnodes` parameter, but your own full node. With additonal measuremeants (e.g. cloud firewall or ufw) you can limit the connections to your validator. Only the p2p port (default 30333) needs to be open if you want to connect to the validator with another node. For example we could open the port 30333 only for the internal network IP address of our full node.
+
+## Firewall
+The p2p port `30333` needs to be open so your Validator can communicate, either with only your full node or the entire network.  
+Make sure the port is open in your cloud / network configuration.
+
+### Set Up UFW Firewall
+To allow port `30333` and ssh access in ufw on your Validator do:
+```bash
+sudo ufw allow 30333
+sudo ufw allow ssh
+```
+
+The RPC port on your Validator should be blocked from the outside:
+```bash
+sudo ufw deny 9944
+```
+
+Enable the firewall:
+```bash
+sufo ufw enable
+```
