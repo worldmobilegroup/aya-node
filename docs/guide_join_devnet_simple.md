@@ -1,4 +1,3 @@
-# Thank you Rick!
 # Join the World Mobile DevNet
 
 Welcome, lets start!
