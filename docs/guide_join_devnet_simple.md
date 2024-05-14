@@ -1,3 +1,4 @@
+# Big Thanks to @ricksteruk
 # Join the World Mobile DevNet
 
 Welcome, lets start!
