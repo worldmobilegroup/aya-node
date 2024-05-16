@@ -29,14 +29,14 @@ use anyhow::{self, Result};
 
 
 mod rpc;  
-use crate::rpc::custom_rpc;
+use crate::rpc::priority_queue_rpc;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
    
     // Start the RPC server using a background task
     let server_handle = tokio::spawn(async {
-        match custom_rpc::run_server().await {
+        match priority_queue_rpc::run_server().await {
             Ok(_) => info!("RPC server stopped."),
             Err(e) => error!("RPC server failed: {:?}", e),
         }

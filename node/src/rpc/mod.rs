@@ -23,7 +23,7 @@ use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::Block as BlockT;
 
 
-pub mod custom_rpc;
+pub mod priority_queue_rpc; 
 
 
 
