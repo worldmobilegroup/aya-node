@@ -17,7 +17,7 @@ RUN rustup target add wasm32-unknown-unknown
 # Download Frontier repo
 RUN git clone https://github.com/worldmobilegroup/aya-node /aya
 RUN cd /aya && git submodule init && git submodule update
-
+RUN rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu
 # Download rust dependencies and build the rust binary
 RUN cargo build "--$PROFILE"
 

@@ -1,36 +1,55 @@
+version: '3'
 services:
   alice:
     build: ./
     command: >
       /aya/target/release/aya-node --dev --tmp --alice --port 30333 --rpc-port 9944
-      --unsafe-rpc-external
-      --rpc-cors all --validator
-    
+      --rpc-external
+      --rpc-methods Unsafe
+      --rpc-cors "http://example.com"
+      --rpc-max-connections 100
+      --rpc-rate-limit 20
+      --rpc-max-request-size 20
+      --rpc-max-response-size 50
+      --rpc-max-subscriptions-per-connection 500
+      --rpc-message-buffer-capacity-per-connection 50
+      --validator
     ports:
       - "30333:30333"
-   
       - "9944:9944"
+      - "5555:5555"
     networks:
       - aya_network
+    environment:
+      - RUST_LOG=sc_rpc=trace,cardano_follower=info
+
 
   bob:
     build: ./
     environment:
       - NODE_KEY=${NODE_KEY}
       - ALICE_IP=${ALICE_IP}
+      # - RUST_LOG=debug,sc_rpc=trace,cardano_follower=debug
     command: >
       /aya/target/release/aya-node --dev --tmp --bob --port 30334 --rpc-port 9946
-      --unsafe-rpc-external
-      --rpc-cors all --validator --bootnodes /ip4/${ALICE_IP}/tcp/30333/p2p/${NODE_KEY}
+      --rpc-external
+      --rpc-methods unsafe
+      --rpc-cors "http://example.com"
+      --rpc-max-connections 100
+      --rpc-rate-limit 20
+      --rpc-max-request-size 20
+      --rpc-max-response-size 50
+      --rpc-max-subscriptions-per-connection 500
+      --rpc-message-buffer-capacity-per-connection 50
+      --validator --bootnodes /ip4/${ALICE_IP}/tcp/30333/p2p/${NODE_KEY}
     depends_on:
       - alice
     networks:
       - aya_network
     ports:
       - "30334:30334"
-   
       - "9946:9946"
-
+  
   scrolls:
     image: sylvaincormier/chain-follower:v0.2
     command: ["/usr/bin/aya_chain_follower", "daemon", "--config", "/app/daemon_conf.toml"]
@@ -42,8 +61,7 @@ services:
       - "9615:9615"
     networks:
       - aya_network
-    
+
 networks:
   aya_network:
     driver: bridge
-

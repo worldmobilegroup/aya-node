@@ -61,7 +61,7 @@ fn correct_error_for_none_value() {
 
 //             assert!(
 //                 sp_io::offchain::local_storage_get(
-//                     sp_runtime::offchain::StorageKind::PERSISTENT, 
+//                     sp_runtime::offchain::StorageKind::PERSISTENT,
 //                     &storage_key
 //                 ).is_some(),
 //                 "Event data should be stored"

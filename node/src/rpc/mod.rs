@@ -5,6 +5,7 @@ use std::sync::Arc;
 use futures::channel::mpsc;
 use jsonrpsee::RpcModule;
 // Substrate
+use log::{debug, error, info};
 use sc_client_api::{
     backend::{Backend, StorageProvider},
     client::BlockchainEvents,
@@ -20,8 +21,15 @@ use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::Block as BlockT;
-pub mod cardano_follower;
-pub use self::cardano_follower::{CardanoFollowerRpc, CardanoFollowerRpcImpl};
+
+
+pub mod custom_rpc;
+
+
+
+
+
+
 // Runtime
 use aya_runtime::{opaque::Block, AccountId, Balance, Hash, Nonce};
 
@@ -40,6 +48,7 @@ pub struct FullDeps<C, P, A: ChainApi, CT, CIDP> {
     pub command_sink: Option<mpsc::Sender<EngineCommand<Hash>>>,
     /// Ethereum-compatibility specific dependencies.
     pub eth: EthDeps<Block, C, P, A, CT, CIDP>,
+    // pub cardano_events: Arc<cardano_follower::CardanoFollowerRpcImpl>,
 }
 
 pub struct DefaultEthConfig<C, BE>(std::marker::PhantomData<(C, BE)>);
@@ -80,7 +89,9 @@ where
     A: ChainApi<Block = Block> + 'static,
     CIDP: CreateInherentDataProviders<Block, ()> + Send + 'static,
     CT: fp_rpc::ConvertTransaction<<Block as BlockT>::Extrinsic> + Send + Sync + 'static,
+   
 {
+    
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
     use sc_consensus_manual_seal::rpc::{ManualSeal, ManualSealApiServer};
     use substrate_frame_rpc_system::{System, SystemApiServer};
@@ -92,6 +103,7 @@ where
         deny_unsafe,
         command_sink,
         eth,
+        // cardano_events
     } = deps;
 
     io.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
@@ -112,11 +124,7 @@ where
         subscription_task_executor,
         pubsub_notification_sinks,
     )?;
-    // It should be changed to this:
-    let cardano_rpc_module = CardanoFollowerRpcImpl{}.into_rpc();
     
-    io.merge(cardano_rpc_module.clone())?;
-
 
     Ok(io)
 }

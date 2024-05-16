@@ -90,6 +90,34 @@ fp-evm = { workspace = true, features = ["default"] }
 fp-rpc = { workspace = true, features = ["default"] }
 aya-runtime = { workspace = true, features = ["std"] }
 
+
+
+jsonrpsee-ws-server = { workspace = true }
+
+tokio = { workspace = true }
+priority-queue = { workspace = true }
+
+tracing = { workspace = true }
+tracing-futures = { workspace = true }
+anyhow = { workspace = true }
+futures-util = { workspace = true }
+assert_matches = { workspace = true }  
+
+hyper = { workspace = true }
+tower-http = { workspace = true }
+tower = { workspace = true }
+lazy_static = { workspace = true }
+env_logger = { workspace = true }
+
+
+[dependencies.tracing-subscriber]
+version = "0.3.18"
+features = ["env-filter"]
+jsonrpsee-http-server = { workspace = true }
+jsonrpsee-ws-server = { workspace = true }    
+lazy_static = { workspace = true }
+
+
 [build-dependencies]
 substrate-build-script-utils = { workspace = true }
 
