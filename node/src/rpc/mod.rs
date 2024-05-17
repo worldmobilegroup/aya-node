@@ -22,13 +22,7 @@ use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_inherents::CreateInherentDataProviders;
 use sp_runtime::traits::Block as BlockT;
 
-
-pub mod priority_queue_rpc; 
-
-
-
-
-
+pub mod priority_queue_rpc;
 
 // Runtime
 use aya_runtime::{opaque::Block, AccountId, Balance, Hash, Nonce};
@@ -89,9 +83,7 @@ where
     A: ChainApi<Block = Block> + 'static,
     CIDP: CreateInherentDataProviders<Block, ()> + Send + 'static,
     CT: fp_rpc::ConvertTransaction<<Block as BlockT>::Extrinsic> + Send + Sync + 'static,
-   
 {
-    
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
     use sc_consensus_manual_seal::rpc::{ManualSeal, ManualSealApiServer};
     use substrate_frame_rpc_system::{System, SystemApiServer};
@@ -124,7 +116,6 @@ where
         subscription_task_executor,
         pubsub_notification_sinks,
     )?;
-    
 
     Ok(io)
 }

@@ -2,7 +2,8 @@
 #[cfg_attr(feature = "std", macro_use)]
 extern crate serde;
 extern crate sp_std;
-
+extern crate alloc;
+use alloc::string::ToString;
 pub use pallet::*;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -18,14 +19,25 @@ pub use weights::*;
 pub mod pallet {
     use frame_support::{dispatch::DispatchResult, pallet_prelude::*, weights::Weight};
     use frame_system::{offchain::*, pallet_prelude::*};
+
     use scale_info::prelude::format;
+    use serde::{Deserialize, Serialize};
     use serde_json;
     use sp_consensus_aura::ed25519::AuthorityId;
     use sp_core::Public;
     use sp_runtime::offchain::*;
-    use sp_runtime::offchain::{http, Duration};
-    use sp_std::prelude::*;
 
+    use sp_core::offchain::Duration;
+    use sp_runtime::offchain::http::Request;
+    use sp_runtime::{
+        offchain as rt_offchain,
+        offchain::{
+            storage::StorageValueRef,
+            storage_lock::{BlockAndTime, StorageLock},
+        },
+    };
+    use sp_std::prelude::*;
+    use alloc::string::ToString; 
     #[pallet::config]
     pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -45,8 +57,13 @@ pub mod pallet {
             if let Err(e) = Self::fetch_and_process_data() {
                 log::error!("Error fetching and sending data: {:?}", e);
             }
-            const STORAGE_KEY_ASSETS: &[u8] = b"my-pallet::assets";
-            const STORAGE_KEY_POOLS: &[u8] = b"my-pallet::pools";
+
+            if let Err(e) = Self::fetch_all_events() {
+                log::error!("Error fetching all events: {:?}", e);
+            }
+
+            // const STORAGE_KEY_ASSETS: &[u8] = b"my-pallet::assets";
+            // const STORAGE_KEY_POOLS: &[u8] = b"my-pallet::pools";
 
             // let _ = Self::fetch_data(Self::construct_url("/api/info/address/stake/assets/"), STORAGE_KEY_ASSETS);
             // let _ = Self::fetch_data(Self::construct_url("/api/info/pools/1"), STORAGE_KEY_POOLS);
@@ -58,6 +75,69 @@ pub mod pallet {
     }
 
     impl<T: Config> Pallet<T> {
+        fn fetch_all_events() -> Result<Vec<u8>, Error<T>> {
+            const HTTP_REMOTE_REQUEST: &str = "http://127.0.0.1:5555";
+            const HTTP_HEADER_USER_AGENT: &str = "SubstrateOffchainWorker";
+            const HTTP_HEADER_CONTENT_TYPE: &str = "Content-Type";
+            const CONTENT_TYPE_JSON: &str = "application/json";
+            const FETCH_TIMEOUT_PERIOD: u64 = 3000; // in milliseconds
+
+            // Create the JSON-RPC request payload
+            let json_payload = serde_json::json!({
+                "jsonrpc": "2.0",
+                "method": "list_all_events",
+                "params": [],
+                "id": 1
+            })
+            .to_string()
+            .into_bytes();
+            let json_payload_ref: Vec<&[u8]> = vec![&json_payload];
+
+            // Initiate an external HTTP POST request. This is using high-level wrappers from `sp_runtime`.
+            let request = rt_offchain::http::Request::post(HTTP_REMOTE_REQUEST, json_payload_ref);
+
+            // Keeping the offchain worker execution time reasonable, so limiting the call to be within 3s.
+            let timeout = sp_io::offchain::timestamp()
+                .add(rt_offchain::Duration::from_millis(FETCH_TIMEOUT_PERIOD));
+
+            // Set the request headers
+            let pending = request
+                .add_header("User-Agent", HTTP_HEADER_USER_AGENT)
+                .add_header(HTTP_HEADER_CONTENT_TYPE, CONTENT_TYPE_JSON)
+                .deadline(timeout) // Setting the timeout time
+                .send() // Sending the request out by the host
+                .map_err(|_| <Error<T>>::HttpFetchingError)?;
+
+            let response = pending
+                .try_wait(timeout)
+                .map_err(|_| <Error<T>>::HttpFetchingError)?
+                .map_err(|_| <Error<T>>::HttpFetchingError)?;
+
+            log::info!("Response code: {}", response.code);
+
+            let body = response.body().collect::<Vec<u8>>();
+            match String::from_utf8(body.clone()) {
+                Ok(json_string) => {
+                    log::info!("Response body: {}", json_string);
+                }
+                Err(e) => {
+                    log::error!("Failed to parse response body as UTF-8: {:?}", e);
+                    log::info!("Response body bytes: {:?}", body);
+                }
+            }
+
+            if response.code != 200 {
+                return Err(<Error<T>>::HttpFetchingError);
+            }
+
+            // Next we fully read the response body and collect it to a vector of bytes.
+            Ok(body)
+        }
+       
+        
+
+
+
         fn construct_url(path: &str) -> String {
             const DEFAULT_HOST: &str = "http://scrolls-1";
             const DEFAULT_PORT: &str = "4123";
@@ -119,6 +199,7 @@ pub mod pallet {
 
             Ok(())
         }
+
         fn fetch_address_stake_assets() -> Result<(), &'static str> {
             let url = Self::construct_url("/api/info/address/stake/assets/");
             // let data = Self::fetch_data(&url)?;
@@ -189,7 +270,7 @@ pub mod pallet {
         }
     }
     use scale_info::prelude::string::String;
-    use sp_runtime::Deserialize;
+
     #[derive(Deserialize, Debug)]
     struct Asset {
         // Define the expected fields

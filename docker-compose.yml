@@ -14,6 +14,7 @@ services:
       --rpc-max-subscriptions-per-connection 500
       --rpc-message-buffer-capacity-per-connection 50
       --validator
+      --offchain-worker always
     ports:
       - "30333:30333"
       - "9944:9944"

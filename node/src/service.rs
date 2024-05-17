@@ -25,7 +25,6 @@ use crate::{
         new_frontier_partial, spawn_frontier_tasks, BackendType, EthCompatRuntimeApiCollection,
         FrontierBackend, FrontierBlockImport, FrontierPartialComponents,
     },
-    
 };
 pub use crate::{
     client::{Client, TemplateRuntimeExecutor},
@@ -439,7 +438,6 @@ where
                     None
                 },
                 eth: eth_deps,
-                
             };
             crate::rpc::create_full(
                 deps,
