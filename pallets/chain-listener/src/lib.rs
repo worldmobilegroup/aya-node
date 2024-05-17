@@ -1,8 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+extern crate alloc;
 #[cfg_attr(feature = "std", macro_use)]
 extern crate serde;
 extern crate sp_std;
-extern crate alloc;
 use alloc::string::ToString;
 pub use pallet::*;
 #[cfg(feature = "std")]
@@ -27,6 +27,7 @@ pub mod pallet {
     use sp_core::Public;
     use sp_runtime::offchain::*;
 
+    use alloc::string::ToString;
     use sp_core::offchain::Duration;
     use sp_runtime::offchain::http::Request;
     use sp_runtime::{
@@ -37,7 +38,6 @@ pub mod pallet {
         },
     };
     use sp_std::prelude::*;
-    use alloc::string::ToString; 
     #[pallet::config]
     pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -133,10 +133,6 @@ pub mod pallet {
             // Next we fully read the response body and collect it to a vector of bytes.
             Ok(body)
         }
-       
-        
-
-
 
         fn construct_url(path: &str) -> String {
             const DEFAULT_HOST: &str = "http://scrolls-1";
