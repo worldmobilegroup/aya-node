@@ -5,8 +5,8 @@ extern crate serde;
 extern crate sp_std;
 use alloc::string::ToString;
 pub use pallet::*;
-#[cfg(feature = "std")]
-use serde::{Deserialize, Serialize};
+// #[cfg(feature = "std")]
+// use serde::{Deserialize, Serialize};
 #[cfg(test)]
 mod tests;
 
@@ -15,29 +15,75 @@ mod benchmarking;
 pub mod weights;
 pub use weights::*;
 
+use sp_core::H256;
+use sp_runtime::codec::{Encode, Decode};
+use alloc::vec::Vec;
+use frame_support::{dispatch::DispatchResult, pallet_prelude::*, storage::types::StorageMap};
+use frame_support::{weights::Weight};
+use frame_system::{offchain::*, pallet_prelude::*};
+
+use scale_info::prelude::format;
+
+use serde_json;
+use sp_consensus_aura::ed25519::AuthorityId;
+use sp_core::Public;
+use sp_runtime::offchain::*;
+
+
+use sp_core::offchain::Duration;
+use sp_runtime::offchain::http::Request;
+use sp_runtime::{
+    offchain as rt_offchain,
+    offchain::{
+        storage::StorageValueRef,
+        storage_lock::{BlockAndTime, StorageLock},
+    },
+};
+use sp_std::prelude::*;
+use trie_db::{Trie, TrieDB, TrieDBMut, TrieLayout};
+use sp_runtime::{ Serialize, Deserialize};
+use scale_info::TypeInfo;
+
+
+
+
+
+
+#[derive(Default, Deserialize, Serialize, Debug, Encode, Decode, Clone, PartialEq, Eq, TypeInfo)]
+pub struct CustomEvent {
+    pub id: u64,
+    pub data: Vec<u8>,
+    pub timestamp: u64,
+    pub block_height: u64,
+    pub previous_hash: Option<H256>,
+}
+
+impl CustomEvent {
+    fn new(id: u64, data: Vec<u8>, timestamp: u64, block_height: u64, previous_hash: Option<H256>) -> Self {
+        CustomEvent {
+            id,
+            data,
+            timestamp,
+            block_height,
+            previous_hash,
+        }
+    }
+
+    fn calculate_hash(&self) -> H256 {
+        let encoded = self.encode();
+        sp_io::hashing::blake2_256(&encoded).into()
+    }
+}
+
+
 #[frame_support::pallet]
 pub mod pallet {
-    use frame_support::{dispatch::DispatchResult, pallet_prelude::*, weights::Weight};
-    use frame_system::{offchain::*, pallet_prelude::*};
+    use super::*;
+   
+    
+    
+    
 
-    use scale_info::prelude::format;
-    use serde::{Deserialize, Serialize};
-    use serde_json;
-    use sp_consensus_aura::ed25519::AuthorityId;
-    use sp_core::Public;
-    use sp_runtime::offchain::*;
-
-    use alloc::string::ToString;
-    use sp_core::offchain::Duration;
-    use sp_runtime::offchain::http::Request;
-    use sp_runtime::{
-        offchain as rt_offchain,
-        offchain::{
-            storage::StorageValueRef,
-            storage_lock::{BlockAndTime, StorageLock},
-        },
-    };
-    use sp_std::prelude::*;
     #[pallet::config]
     pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -51,6 +97,12 @@ pub mod pallet {
     #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
 
+    #[pallet::storage]
+    #[pallet::getter(fn event_storage)]
+    pub type EventStorage<T: Config> = StorageMap<_, Blake2_128Concat, u64, CustomEvent, ValueQuery>;
+
+
+
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn offchain_worker(block_number: BlockNumberFor<T>) {
@@ -61,20 +113,32 @@ pub mod pallet {
             if let Err(e) = Self::fetch_all_events() {
                 log::error!("Error fetching all events: {:?}", e);
             }
-
-            // const STORAGE_KEY_ASSETS: &[u8] = b"my-pallet::assets";
-            // const STORAGE_KEY_POOLS: &[u8] = b"my-pallet::pools";
-
-            // let _ = Self::fetch_data(Self::construct_url("/api/info/address/stake/assets/"), STORAGE_KEY_ASSETS);
-            // let _ = Self::fetch_data(Self::construct_url("/api/info/pools/1"), STORAGE_KEY_POOLS);
-
-            // Optionally process data immediately or at a different interval/trigger
-            // let _ = Self::process_stored_data(STORAGE_KEY_ASSETS);
-            // let _ = Self::process_stored_data(STORAGE_KEY_POOLS);
+             // Check if the validator is the leader
+        if Self::is_leader() {
+            // Create and submit an inclusion transaction
+            if let Err(e) = Self::create_inclusion_transaction() {
+                log::error!("Error creating inclusion transaction: {:?}", e);
+            }
         }
+
+        }
+        
     }
 
     impl<T: Config> Pallet<T> {
+        fn cleanup_processed_events() {
+            // Remove events from storage that have been included in the blockchain
+            for event_id in EventStorage::<T>::iter_keys() {
+                EventStorage::<T>::remove(event_id);
+            }
+        }
+
+        fn is_leader() -> bool {
+            // Implement your leader election logic here
+            // For simplicity, we assume the current validator is the leader
+            true
+        }
+
         fn fetch_all_events() -> Result<Vec<u8>, Error<T>> {
             const HTTP_REMOTE_REQUEST: &str = "http://127.0.0.1:5555";
             const HTTP_HEADER_USER_AGENT: &str = "SubstrateOffchainWorker";
@@ -134,6 +198,78 @@ pub mod pallet {
             Ok(body)
         }
 
+        fn validate_and_process_event(event: CustomEvent) -> Result<(), Error<T>> {
+            // // Validate the event data
+            if event.timestamp == 0 || event.block_height == 0 {
+                return Err(Error::<T>::InvalidEventData);
+            }
+
+            // Additional validation logic...
+
+            // Process the event (e.g., store in mempool)
+            Self::store_event_in_mempool(event);
+
+            Ok(())
+        }
+
+        fn store_event_in_mempool(event: CustomEvent) {
+            // let previous_event = EventStorage::<T>::get(event.id - 1);
+            // let previous_hash = previous_event.map(|e| e.calculate_hash());
+        
+            // let new_event = CustomEvent::new(event.id, event.data, event.timestamp, event.block_height, previous_hash);
+            EventStorage::<T>::insert(event.id, event);
+        }
+        fn get_event(event_id: u64) -> Option<CustomEvent> {
+            Some(EventStorage::<T>::get(event_id))
+        }
+        fn hash_event(event: &CustomEvent) -> H256 {
+            let encoded = event.encode();
+            sp_io::hashing::blake2_256(&encoded).into()
+        }
+        fn create_inclusion_transaction() -> Result<(), &'static str> {
+            let mut events = Vec::new();
+            for event_id in EventStorage::<T>::iter_keys() {
+                if let event = EventStorage::<T>::get(event_id) {
+                    events.push(event);
+                }
+            }
+    
+            // Create a transaction with the events
+            // You can define a specific transaction type for inclusion
+            // For simplicity, we assume you have a `submit_inclusion_transaction` extrinsic
+    
+            // let call = Call::<T>::submit_inclusion_transaction { events };
+    
+            // // Submit the transaction
+            // T::SubmitTransaction::submit_unsigned_transaction(call.into())
+            //     .map_err(|_| "Failed to submit transaction")?;
+    
+            Ok(())
+        }
+
+        // fn verify_inclusion_tx(tx: Transaction) -> Result<(), Error<T>> {
+        //     // Verify the events included in the transaction
+        //     for event in tx.events {
+        //         if !Self::is_event_in_mempool(event) {
+        //             // Make a callback to request the event
+        //             Self::request_event_from_follower(event.id)?;
+        //         }
+        //     }
+
+        //     Ok(())
+        // }
+
+        // fn is_event_in_mempool(event: Event) -> bool {
+        //     // Check if the event is in the local mempool
+        //     Mempool::<T>::get().contains(&event)
+        // }
+
+        // fn request_event_from_follower(event_id: u64) -> Result<Event, Error<T>> {
+        //     // Make an RPC call to request the event from the Chain-Follower
+        //     let event = // RPC call logic...
+        //     Ok(event)
+        // }
+
         fn construct_url(path: &str) -> String {
             const DEFAULT_HOST: &str = "http://scrolls-1";
             const DEFAULT_PORT: &str = "4123";
@@ -166,7 +302,8 @@ pub mod pallet {
             }
             Ok(())
         }
-
+      
+        
         fn fetch_data(url: &str, storage_key: &[u8]) -> Result<(), &'static str> {
             let request = http::Request::get(url);
             let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(8000));
@@ -264,6 +401,16 @@ pub mod pallet {
             // save to local storage queue
             Ok(())
         }
+        fn verify_event_sequence(events: &[CustomEvent]) -> Result<(), &'static str> {
+            // Implement logic to verify the sequence and order of events
+            // This function should compare events with the local mempool or state
+            for i in 1..events.len() {
+                if events[i].previous_hash != Some(events[i - 1].calculate_hash()) {
+                    return Err("Event sequence is invalid");
+                }
+            }
+            Ok(())
+        }
     }
     use scale_info::prelude::string::String;
 
@@ -316,10 +463,25 @@ pub mod pallet {
 
             Ok(())
         }
+        #[pallet::weight(10_000)]
+        pub fn submit_inclusion_transaction(origin: OriginFor<T>, events: Vec<CustomEvent>) -> DispatchResult {
+            // Ensure the call is unsigned to allow offchain workers to submit
+            let _who = ensure_none(origin)?;
+             // Verify event sequence and order with committee
+             Self::verify_event_sequence(&events)?;
+            // Logic to handle the inclusion of events in the transaction
+            // Validate events, ensure proper ordering, etc.
+            
+            Ok(())
+        }
     }
 
     #[pallet::error]
     pub enum Error<T> {
+        NoneValue,
+        StorageOverflow,
+        InvalidEventData,
+        EventNotFound,
         HttpFetchingError,
     }
 
@@ -347,37 +509,3 @@ pub mod pallet {
     }
 }
 
-// impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-//     fn offchain_worker(block_number: BlockNumberFor<T>) {
-//         // Process events every block or at some interval
-//         if let Err(e) = Self::process_cardano_events() {
-//             log::error!("Error processing events: {:?}", e);
-//         }
-//     }
-// }
-
-// impl<T: Config> Pallet<T> {
-//     fn process_cardano_events() -> Result<(), &'static str> {
-//         let key = b"cardano_events";
-//         if let Some(data) = sp_io::offchain::local_storage_get(sp_runtime::offchain::StorageKind::PERSISTENT, key) {
-//             let events: Vec<Event> = serde_json::from_slice(&data).map_err(|_| "Failed to parse stored data")?;
-
-//             for event in events {
-//                 log::info!("Processing stored Cardano event: {:?}", event);
-//                 // Here you can add further processing, like submitting on-chain transactions
-//             }
-//         }
-//         Ok(())
-//     }
-// }
-// Consistency and Ordering
-
-//     Timestamps and Sequence Numbers:
-//         Assign timestamps or sequence numbers to each event as it's captured. This can help in maintaining the order when events are processed or compared across different nodes.
-//         Ensure that clocks are synchronized across nodes if using timestamps, or use a logical clock (like Lamport timestamps) to order events without relying on synchronized real-time clocks.
-
-//     Hash Chains:
-//         Each event could include the hash of the previous event. This creates a chain that inherently orders the events and adds an additional layer of integrity checking.
-
-//     Merkle Trees:
-//         Implement Merkle trees in your offchain storage to efficiently prove the existence and integrity of the events in your queue. This is particularly useful when you need to compare queues across nodes and quickly identify discrepancies.

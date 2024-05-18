@@ -199,6 +199,8 @@ precompile-utils = { git = "https://github.com/polkadot-evm/frontier", branch = 
 aya-runtime = { path = "runtime", default-features = false }
 jsonrpsee-ws-client = { version = '0.22.5' }
 
+trie-db = { git = "https://github.com/paritytech/trie", default-features = false }
+
 
 
 [profile.release]

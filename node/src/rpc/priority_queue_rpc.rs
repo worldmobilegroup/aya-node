@@ -17,7 +17,6 @@ struct Event {
     block_height: u64,
 }
 
-
 #[derive(Serialize, Deserialize)]
 struct UpdatePriorityParams {
     id: u64,
@@ -94,10 +93,10 @@ pub async fn run_server() -> anyhow::Result<SocketAddr> {
             "jsonrpc": "2.0",
             "result": pq.len(),
             "id": 1
-        }).to_string();
+        })
+        .to_string();
         Ok::<_, ErrorObjectOwned>(response)
     })?;
-
 
     module.register_async_method("get_event_by_id", |params, pq| async move {
         let id: u64 = params.one()?;
@@ -144,13 +143,12 @@ pub async fn run_server() -> anyhow::Result<SocketAddr> {
             Ok::<_, ErrorObjectOwned>("Event not found".to_string())
         }
     })?;
-    
-    
 
     module.register_async_method("get_events_by_timestamp", |params, pq| async move {
         let (start, end): (u64, u64) = params.parse()?;
         let pq = pq.lock().await;
-        let events = pq.iter()
+        let events = pq
+            .iter()
             .filter(|(e, _)| e.timestamp >= start && e.timestamp <= end)
             .map(|(e, p)| (e.clone(), *p))
             .collect::<Vec<_>>();
@@ -168,10 +166,10 @@ pub async fn run_server() -> anyhow::Result<SocketAddr> {
                     "success": false,
                     "message": "No events found in the given timestamp range"
                 }))
-                .unwrap())
+                .unwrap(),
+            )
         }
     })?;
-
 
     let handle = server.start(module);
 
@@ -180,5 +178,4 @@ pub async fn run_server() -> anyhow::Result<SocketAddr> {
     println!("Server has been stopped externally.");
 
     Ok(addr)
-    
 }
