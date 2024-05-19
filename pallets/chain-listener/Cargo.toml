@@ -24,7 +24,10 @@ sp-consensus-aura = { workspace = true }
 sp-std = {workspace = true}
 serde = { workspace = true }
 serde_json = { workspace = true }
-trie-db ={ workspace = true	}	
+trie-db ={ workspace = true	}
+sp-application-crypto = { version = "35.0.0", default-features = false }
+
+
 [features]
 default = ["std"]
 std = [
@@ -39,10 +42,7 @@ std = [
 	"sp-std/std",
 	"serde/std",
 	"serde_json/std",
-	
-	
-
-	
+	"sp-application-crypto/std",
 
 ]
 runtime-benchmarks = [

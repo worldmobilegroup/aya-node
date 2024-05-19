@@ -13,8 +13,8 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 pub mod weights;
-pub use weights::*;
-
+// pub use weights::*;
+// use sp_application_crypto::AppCrypto;
 use sp_core::H256;
 use sp_runtime::codec::{Encode, Decode};
 use alloc::vec::Vec;
@@ -43,6 +43,7 @@ use sp_std::prelude::*;
 use trie_db::{Trie, TrieDB, TrieDBMut, TrieLayout};
 use sp_runtime::{ Serialize, Deserialize};
 use scale_info::TypeInfo;
+use frame_support::unsigned::TransactionSource;
 
 
 
@@ -89,6 +90,8 @@ pub mod pallet {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type WeightInfo: WeightInfo;
         type AuthorityId: Public;
+        // type SubmitTransaction: frame_system::offchain::SendSignedTransaction<Self, AppCrypto, Call<Self>>;
+        
         // Authority identifier for signing transactions
         // type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
     }
@@ -234,11 +237,7 @@ pub mod pallet {
                 }
             }
     
-            // Create a transaction with the events
-            // You can define a specific transaction type for inclusion
-            // For simplicity, we assume you have a `submit_inclusion_transaction` extrinsic
-    
-            // let call = Call::<T>::submit_inclusion_transaction { events };
+            let call = Call::<T>::submit_inclusion_transaction { events };
     
             // // Submit the transaction
             // T::SubmitTransaction::submit_unsigned_transaction(call.into())

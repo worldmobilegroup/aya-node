@@ -201,7 +201,11 @@ jsonrpsee-ws-client = { version = '0.22.5' }
 
 trie-db = { git = "https://github.com/paritytech/trie", default-features = false }
 
+# [patch.crates-io]
+# sp-io = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.9.0" }
 
+[replace]
+'sp-io:30.0.0' = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.9.0" }
 
 [profile.release]
 # Substrate runtime requires unwinding.
