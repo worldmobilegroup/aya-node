@@ -222,6 +222,18 @@ pub mod pallet {
             // let new_event = CustomEvent::new(event.id, event.data, event.timestamp, event.block_height, previous_hash);
             EventStorage::<T>::insert(event.id, event);
         }
+        fn fetch_and_process_events_from_queue() -> Result<(), Error<T>> {
+            // Fetch events from the queue using the RPC call
+            let response = Self::fetch_all_events()?;
+            let events: Vec<(CustomEvent, i32)> = serde_json::from_slice(&response)
+                .map_err(|_| <Error<T>>::HttpFetchingError)?;
+    
+            for (event, _priority) in events {
+                Self::validate_and_process_event(event)?;
+            }
+    
+            Ok(())
+        }
         fn get_event(event_id: u64) -> Option<CustomEvent> {
             Some(EventStorage::<T>::get(event_id))
         }
@@ -245,7 +257,27 @@ pub mod pallet {
     
             Ok(())
         }
-
+        fn synchronize_events_with_peers() -> Result<(), Error<T>> {
+            let event_ids: Vec<u64> = EventStorage::<T>::iter_keys().collect();
+        
+            for event_id in event_ids {
+                if let Some(event) = Self::get_event(event_id) {
+                    if !Self::validate_and_process_event(event.clone()).is_ok() {
+                        // Request the event from other workers
+                        let missing_event = Self::request_event_from_peers(event_id)?;
+                        Self::validate_and_process_event(missing_event)?;
+                    }
+                }
+            }
+        
+            Ok(())
+        }
+    
+        fn request_event_from_peers(event_id: u64) -> Result<CustomEvent, Error<T>> {
+            // Implement RPC call to request the event from other workers
+            // Deserialize the response and return the event
+            unimplemented!()
+        }
         // fn verify_inclusion_tx(tx: Transaction) -> Result<(), Error<T>> {
         //     // Verify the events included in the transaction
         //     for event in tx.events {
@@ -511,3 +543,11 @@ pub mod pallet {
     }
 }
 
+// Implement Off-Chain Worker for Event Fetching and Processing
+
+// - Added CustomEvent struct and methods for creating and hashing events.
+// - Implemented pallet structure with Config trait and StorageMap for event storage.
+// - Added off-chain worker logic to fetch and process events from an external source.
+// - Implemented leader election logic and inclusion transaction creation.
+// - Enhanced HTTP request handling and error logging.
+// - Added placeholder functions for future integration with priority queue and KV store.

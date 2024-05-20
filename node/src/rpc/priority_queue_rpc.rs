@@ -170,6 +170,28 @@ pub async fn run_server() -> anyhow::Result<SocketAddr> {
             )
         }
     })?;
+    module.register_async_method("request_event", |params, pq| async move {
+        let event_id: u64 = params.one()?;
+        let pq = pq.lock().await;
+        let event = pq.iter().find(|(e, _)| e.id == event_id).map(|(e, _)| e.clone());
+        if let Some(event) = event {
+            Ok::<_, ErrorObjectOwned>(
+                serde_json::to_string(&json!({
+                    "success": true,
+                    "event": event
+                }))
+                .unwrap(),
+            )
+        } else {
+            Ok::<_, ErrorObjectOwned>(
+                serde_json::to_string(&json!({
+                    "success": false,
+                    "message": "Event not found"
+                }))
+                .unwrap(),
+            )
+        }
+    })?;
 
     let handle = server.start(module);
 
