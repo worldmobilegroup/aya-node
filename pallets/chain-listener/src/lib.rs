@@ -142,13 +142,13 @@ pub mod pallet {
             true
         }
 
-        fn fetch_all_events() -> Result<Vec<u8>, Error<T>> {
+        fn fetch_all_events() -> Result<Vec<CustomEvent>, Error<T>> {
             const HTTP_REMOTE_REQUEST: &str = "http://127.0.0.1:5555";
             const HTTP_HEADER_USER_AGENT: &str = "SubstrateOffchainWorker";
             const HTTP_HEADER_CONTENT_TYPE: &str = "Content-Type";
             const CONTENT_TYPE_JSON: &str = "application/json";
             const FETCH_TIMEOUT_PERIOD: u64 = 3000; // in milliseconds
-
+    
             // Create the JSON-RPC request payload
             let json_payload = serde_json::json!({
                 "jsonrpc": "2.0",
@@ -159,14 +159,14 @@ pub mod pallet {
             .to_string()
             .into_bytes();
             let json_payload_ref: Vec<&[u8]> = vec![&json_payload];
-
+    
             // Initiate an external HTTP POST request. This is using high-level wrappers from `sp_runtime`.
             let request = rt_offchain::http::Request::post(HTTP_REMOTE_REQUEST, json_payload_ref);
-
+    
             // Keeping the offchain worker execution time reasonable, so limiting the call to be within 3s.
             let timeout = sp_io::offchain::timestamp()
                 .add(rt_offchain::Duration::from_millis(FETCH_TIMEOUT_PERIOD));
-
+    
             // Set the request headers
             let pending = request
                 .add_header("User-Agent", HTTP_HEADER_USER_AGENT)
@@ -174,14 +174,14 @@ pub mod pallet {
                 .deadline(timeout) // Setting the timeout time
                 .send() // Sending the request out by the host
                 .map_err(|_| <Error<T>>::HttpFetchingError)?;
-
+    
             let response = pending
                 .try_wait(timeout)
                 .map_err(|_| <Error<T>>::HttpFetchingError)?
                 .map_err(|_| <Error<T>>::HttpFetchingError)?;
-
+    
             log::info!("Response code: {}", response.code);
-
+    
             let body = response.body().collect::<Vec<u8>>();
             match String::from_utf8(body.clone()) {
                 Ok(json_string) => {
@@ -192,13 +192,16 @@ pub mod pallet {
                     log::info!("Response body bytes: {:?}", body);
                 }
             }
-
+    
             if response.code != 200 {
                 return Err(<Error<T>>::HttpFetchingError);
             }
-
-            // Next we fully read the response body and collect it to a vector of bytes.
-            Ok(body)
+    
+            // Deserialize the response body to Vec<CustomEvent>
+            let events: Vec<CustomEvent> = serde_json::from_slice(&body)
+                .map_err(|_| <Error<T>>::HttpFetchingError)?;
+    
+            Ok(events)
         }
 
         fn validate_and_process_event(event: CustomEvent) -> Result<(), Error<T>> {
@@ -309,13 +312,15 @@ pub mod pallet {
         }
 
         fn fetch_and_process_data() -> Result<(), &'static str> {
-            // Example: Fetch data from multiple endpoints
-            let assets_url = Self::construct_url("/api/info/address/stake/assets/");
-            // Self::fetch_data(&assets_url)?;
-
-            // let pools_url = Self::construct_url("/api/info/pools/1"); // example with page number
-            // Self::fetch_data(&pools_url)?;
-
+            if let Ok(events) = Self::fetch_all_events() {
+                for event in events {
+                    if let Err(e) = Self::validate_and_process_event(event) {
+                        log::error!("Failed to process event: {:?}", e);
+                    }
+                }
+            } else {
+                log::error!("Failed to fetch events");
+            }
             Ok(())
         }
 
@@ -326,9 +331,11 @@ pub mod pallet {
             ) {
                 let assets: Vec<Asset> =
                     serde_json::from_slice(&data).map_err(|_| "Failed to parse JSON data")?;
-
+    
                 for asset in assets {
                     log::info!("Asset ID: {}, Quantity: {}", asset.asset_id, asset.quantity);
+                    // Store the asset data in pallet storage (if necessary)
+                    // e.g., AssetStorage::<T>::insert(asset.asset_id, asset);
                 }
             }
             Ok(())
