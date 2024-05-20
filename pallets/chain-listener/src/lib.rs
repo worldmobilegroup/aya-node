@@ -303,17 +303,20 @@ pub mod pallet {
         }
       
         
-        fn fetch_data(url: &str, storage_key: &[u8]) -> Result<(), &'static str> {
-            let request = http::Request::get(url);
-            let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(8000));
+        fn fetch_data(url: &str) -> Result<(), &'static str> {
+            const FETCH_TIMEOUT_PERIOD: u64 = 3000; // in milliseconds
+            let request = rt_offchain::http::Request::get(url);
+
+            let timeout = sp_io::offchain::timestamp()
+                .add(rt_offchain::Duration::from_millis(FETCH_TIMEOUT_PERIOD));
+
             let pending = request
-                .add_header("User-Agent", "SubstrateOffchainWorker")
-                .deadline(deadline)
+                .deadline(timeout)
                 .send()
                 .map_err(|_| "Failed to send request")?;
 
             let response = pending
-                .try_wait(deadline)
+                .try_wait(timeout)
                 .map_err(|_| "Timeout while waiting for response")?
                 .map_err(|_| "Failed to receive response")?;
 
@@ -322,12 +325,8 @@ pub mod pallet {
                 return Err("Non-200 status code returned from API");
             }
 
-            let data = response.body().collect::<Vec<u8>>();
-            sp_io::offchain::local_storage_set(
-                sp_runtime::offchain::StorageKind::PERSISTENT,
-                storage_key,
-                &data,
-            );
+            let body = response.body().collect::<Vec<u8>>();
+            log::info!("Response body: {:?}", body);
 
             Ok(())
         }
@@ -456,9 +455,13 @@ pub mod pallet {
             ensure_signed(origin)?;
             const STORAGE_KEY_ASSETS: &[u8] = b"my-pallet::assets";
             const STORAGE_KEY_POOLS: &[u8] = b"my-pallet::pools";
-            // Perform fetch operations immediately
-            // let _ = Self::fetch_data(Self::construct_url("/api/info/address/stake/assets/"), STORAGE_KEY_ASSETS);
-            // let _ = Self::fetch_data(Self::construct_url("/api/info/pools/1"), STORAGE_KEY_POOLS);
+
+            let assets_url = Self::construct_url("/api/info/address/stake/assets/");
+            Self::fetch_data(&assets_url).map_err(|_| Error::<T>::HttpFetchingError)?;
+
+            let pools_url = Self::construct_url("/api/info/pools/1");
+            Self::fetch_data(&pools_url).map_err(|_| Error::<T>::HttpFetchingError)?;
+
 
             Ok(())
         }
