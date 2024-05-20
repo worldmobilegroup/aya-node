@@ -272,12 +272,16 @@ pub mod pallet {
         
             Ok(())
         }
-    
         fn request_event_from_peers(event_id: u64) -> Result<CustomEvent, Error<T>> {
-            // Implement RPC call to request the event from other workers
-            // Deserialize the response and return the event
-            unimplemented!()
+            let url = Self::construct_url(&format!("/api/events/{}", event_id));
+            let response = Self::fetch_data(&url).map_err(|_| <Error<T>>::HttpFetchingError)?;
+        
+            let event: CustomEvent = serde_json::from_slice(&response)
+                .map_err(|_| <Error<T>>::HttpFetchingError)?;
+        
+            Ok(event)
         }
+        
         // fn verify_inclusion_tx(tx: Transaction) -> Result<(), Error<T>> {
         //     // Verify the events included in the transaction
         //     for event in tx.events {
@@ -335,33 +339,34 @@ pub mod pallet {
         }
       
         
-        fn fetch_data(url: &str) -> Result<(), &'static str> {
+        fn fetch_data(url: &str) -> Result<Vec<u8>, &'static str> {
             const FETCH_TIMEOUT_PERIOD: u64 = 3000; // in milliseconds
             let request = rt_offchain::http::Request::get(url);
-
+        
             let timeout = sp_io::offchain::timestamp()
                 .add(rt_offchain::Duration::from_millis(FETCH_TIMEOUT_PERIOD));
-
+        
             let pending = request
                 .deadline(timeout)
                 .send()
                 .map_err(|_| "Failed to send request")?;
-
+        
             let response = pending
                 .try_wait(timeout)
                 .map_err(|_| "Timeout while waiting for response")?
                 .map_err(|_| "Failed to receive response")?;
-
+        
             if response.code != 200 {
                 log::error!("Unexpected status code: {}", response.code);
                 return Err("Non-200 status code returned from API");
             }
-
+        
             let body = response.body().collect::<Vec<u8>>();
             log::info!("Response body: {:?}", body);
-
-            Ok(())
+        
+            Ok(body)
         }
+        
 
         fn fetch_address_stake_assets() -> Result<(), &'static str> {
             let url = Self::construct_url("/api/info/address/stake/assets/");
