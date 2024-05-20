@@ -14,7 +14,7 @@ mod tests;
 mod benchmarking;
 pub mod weights;
 // pub use weights::*;
-// use sp_application_crypto::AppCrypto;
+use sp_application_crypto::AppCrypto;
 use sp_core::H256;
 use sp_runtime::codec::{Encode, Decode};
 use alloc::vec::Vec;
