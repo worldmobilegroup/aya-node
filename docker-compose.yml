@@ -42,7 +42,8 @@ services:
       --rpc-max-response-size 50
       --rpc-max-subscriptions-per-connection 500
       --rpc-message-buffer-capacity-per-connection 50
-      --validator --bootnodes /ip4/${ALICE_IP}/tcp/30333/p2p/${NODE_KEY}
+      --validator --bootnodes /ip4/${ALICE_IP}/tcp/30333/p2p/${NODE_KEY} 
+      --offchain-worker always
     depends_on:
       - alice
     networks:

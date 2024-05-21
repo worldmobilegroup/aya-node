@@ -28,6 +28,13 @@ trie-db ={ workspace = true	}
 sp-application-crypto = { workspace = true }
 
 
+[dev-dependencies]
+
+sp-consensus-aura = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.9.0", default-features = false }
+mockall = "0.12.1" 
+
+
+
 [features]
 default = ["std"]
 std = [

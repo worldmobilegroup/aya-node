@@ -14,13 +14,15 @@ mod tests;
 mod benchmarking;
 pub mod weights;
 // pub use weights::*;
+use alloc::vec::Vec;
+use frame_support::weights::Weight;
+use frame_support::{dispatch::DispatchResult, pallet_prelude::*, storage::types::StorageMap};
+use frame_system::{offchain::*, pallet_prelude::*};
 use sp_application_crypto::AppCrypto;
 use sp_core::H256;
-use sp_runtime::codec::{Encode, Decode};
-use alloc::vec::Vec;
-use frame_support::{dispatch::DispatchResult, pallet_prelude::*, storage::types::StorageMap};
-use frame_support::{weights::Weight};
-use frame_system::{offchain::*, pallet_prelude::*};
+use sp_std::result;
+
+use sp_runtime::codec::{Decode, Encode};
 
 use scale_info::prelude::format;
 
@@ -29,7 +31,8 @@ use sp_consensus_aura::ed25519::AuthorityId;
 use sp_core::Public;
 use sp_runtime::offchain::*;
 
-
+use frame_support::unsigned::TransactionSource;
+use scale_info::TypeInfo;
 use sp_core::offchain::Duration;
 use sp_runtime::offchain::http::Request;
 use sp_runtime::{
@@ -39,18 +42,13 @@ use sp_runtime::{
         storage_lock::{BlockAndTime, StorageLock},
     },
 };
+use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
 use trie_db::{Trie, TrieDB, TrieDBMut, TrieLayout};
-use sp_runtime::{ Serialize, Deserialize};
-use scale_info::TypeInfo;
-use frame_support::unsigned::TransactionSource;
 
-
-
-
-
-
-#[derive(Default, Deserialize, Serialize, Debug, Encode, Decode, Clone, PartialEq, Eq, TypeInfo)]
+#[derive(
+    Default, Deserialize, Serialize, Debug, Encode, Decode, Clone, PartialEq, Eq, TypeInfo,
+)]
 pub struct CustomEvent {
     pub id: u64,
     pub data: Vec<u8>,
@@ -60,7 +58,13 @@ pub struct CustomEvent {
 }
 
 impl CustomEvent {
-    fn new(id: u64, data: Vec<u8>, timestamp: u64, block_height: u64, previous_hash: Option<H256>) -> Self {
+    fn new(
+        id: u64,
+        data: Vec<u8>,
+        timestamp: u64,
+        block_height: u64,
+        previous_hash: Option<H256>,
+    ) -> Self {
         CustomEvent {
             id,
             data,
@@ -76,14 +80,9 @@ impl CustomEvent {
     }
 }
 
-
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-   
-    
-    
-    
 
     #[pallet::config]
     pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
@@ -91,7 +90,7 @@ pub mod pallet {
         type WeightInfo: WeightInfo;
         type AuthorityId: Public;
         // type SubmitTransaction: frame_system::offchain::SendSignedTransaction<Self, AppCrypto, Call<Self>>;
-        
+
         // Authority identifier for signing transactions
         // type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
     }
@@ -102,30 +101,59 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn event_storage)]
-    pub type EventStorage<T: Config> = StorageMap<_, Blake2_128Concat, u64, CustomEvent, ValueQuery>;
-
-
+    pub type EventStorage<T: Config> =
+        StorageMap<_, Blake2_128Concat, u64, CustomEvent, ValueQuery>;
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn offchain_worker(block_number: BlockNumberFor<T>) {
-            if let Err(e) = Self::fetch_and_process_data() {
-                log::error!("Error fetching and sending data: {:?}", e);
+            // if let Err(e) = Self::fetch_and_process_data() {
+            //     log::error!("Error fetching and sending data: {:?}", e);
+            // }
+    
+            // if let Err(e) = Self::fetch_all_events() {
+            //     log::error!("Error fetching all events: {:?}", e);
+            // }
+    
+            // // Fetch remote events
+            // let remote_events = match Self::fetch_remote_events() {
+            //     Ok(events) => events,
+            //     Err(e) => {
+            //         log::error!("Error fetching remote events: {:?}", e);
+            //         return;
+            //     }
+            // };
+    
+            // // Compare local and remote events
+            // let local_events: Vec<CustomEvent> = EventStorage::<T>::iter_values().collect();
+            // let queues_consistent = Self::compare_queues(local_events.clone(), remote_events);
+    
+            // if queues_consistent {
+            //     log::info!("Event queues are consistent across nodes.");
+            // } else {
+            //     log::error!("Event queues are inconsistent across nodes.");
+            // }
+    
+            // // Check if the validator is the leader
+            // if Self::is_leader() {
+            //     // Create and submit an inclusion transaction
+            //     if let Err(e) = Self::create_inclusion_transaction() {
+            //         log::error!("Error creating inclusion transaction: {:?}", e);
+            //     }
+            // }
+
+            if let Err(e) = Self::fetch_and_process_events_from_queue() {
+                // log::error!("Error fetching and processing events: {:?}", e);
             }
 
-            if let Err(e) = Self::fetch_all_events() {
-                log::error!("Error fetching all events: {:?}", e);
-            }
-             // Check if the validator is the leader
-        if Self::is_leader() {
-            // Create and submit an inclusion transaction
-            if let Err(e) = Self::create_inclusion_transaction() {
-                log::error!("Error creating inclusion transaction: {:?}", e);
+            // Check if the validator is the leader
+            if Self::is_leader() {
+                // Create and submit an inclusion transaction
+                if let Err(e) = Self::create_inclusion_transaction() {
+                    log::error!("Error creating inclusion transaction: {:?}", e);
+                }
             }
         }
-
-        }
-        
     }
 
     impl<T: Config> Pallet<T> {
@@ -200,6 +228,43 @@ pub mod pallet {
             // Next we fully read the response body and collect it to a vector of bytes.
             Ok(body)
         }
+        fn compare_queues(local_events: Vec<CustomEvent>, remote_events: Vec<CustomEvent>) -> bool {
+            // Compare local events with remote events
+            // You can compare the hashes of the events to ensure they are consistent
+            // Implement logic to compare event queues
+            // Example: Simple majority vote to decide if the queues are consistent
+            // You can also implement more complex algorithms like PBFT or Raft
+
+            for (local_event, remote_event) in local_events.iter().zip(remote_events.iter()) {
+                if local_event.calculate_hash() != remote_event.calculate_hash() {
+                    return false;
+                }
+            }
+            true
+        }
+        fn fetch_remote_events() -> Vec<CustomEvent> {
+            // Implement the logic to fetch remote events from other nodes.
+            // This might involve sending HTTP requests to other nodes and parsing the responses.
+            // For simplicity, let's assume we have the URLs of other nodes stored somewhere.
+
+            // let urls = vec!["http://node1:5555", "http://node2:5555"]; // Replace with actual URLs
+            let mut all_events = Vec::new();
+
+            // for url in urls {
+            //     let response = Self::fetch_data(&format!("{}/list_all_events", url))?;
+            //     let events: Vec<CustomEvent> =
+            //         serde_json::from_slice(&response).map_err(|_| <Error<T>>::HttpFetchingError)?;
+            //     all_events.extend(events);
+            // }
+
+            all_events
+        }
+
+        fn finalize_transactions(validated_events: Vec<CustomEvent>) {
+            for event in validated_events {
+                Self::store_event_in_mempool(event);
+            }
+        }
 
         fn validate_and_process_event(event: CustomEvent) -> Result<(), Error<T>> {
             // // Validate the event data
@@ -207,7 +272,9 @@ pub mod pallet {
                 return Err(Error::<T>::InvalidEventData);
             }
 
-            // Additional validation logic...
+            if event.data.is_empty() {
+                return Err(Error::<T>::InvalidEventData);
+            }
 
             // Process the event (e.g., store in mempool)
             Self::store_event_in_mempool(event);
@@ -216,22 +283,28 @@ pub mod pallet {
         }
 
         fn store_event_in_mempool(event: CustomEvent) {
-            // let previous_event = EventStorage::<T>::get(event.id - 1);
-            // let previous_hash = previous_event.map(|e| e.calculate_hash());
-        
-            // let new_event = CustomEvent::new(event.id, event.data, event.timestamp, event.block_height, previous_hash);
-            EventStorage::<T>::insert(event.id, event);
+            let previous_event = Some(EventStorage::<T>::get(event.id - 1));
+            let previous_hash = previous_event.map(|e| e.calculate_hash());
+
+            let new_event = CustomEvent::new(
+                event.id,
+                event.data,
+                event.timestamp,
+                event.block_height,
+                previous_hash,
+            );
+            EventStorage::<T>::insert(new_event.id, new_event);
         }
         fn fetch_and_process_events_from_queue() -> Result<(), Error<T>> {
             // Fetch events from the queue using the RPC call
             let response = Self::fetch_all_events()?;
-            let events: Vec<(CustomEvent, i32)> = serde_json::from_slice(&response)
-                .map_err(|_| <Error<T>>::HttpFetchingError)?;
-    
+            let events: Vec<(CustomEvent, i32)> =
+                serde_json::from_slice(&response).map_err(|_| <Error<T>>::HttpFetchingError)?;
+
             for (event, _priority) in events {
                 Self::validate_and_process_event(event)?;
             }
-    
+
             Ok(())
         }
         fn get_event(event_id: u64) -> Option<CustomEvent> {
@@ -248,18 +321,18 @@ pub mod pallet {
                     events.push(event);
                 }
             }
-    
+
             let call = Call::<T>::submit_inclusion_transaction { events };
-    
+
             // // Submit the transaction
             // T::SubmitTransaction::submit_unsigned_transaction(call.into())
             //     .map_err(|_| "Failed to submit transaction")?;
-    
+
             Ok(())
         }
         fn synchronize_events_with_peers() -> Result<(), Error<T>> {
             let event_ids: Vec<u64> = EventStorage::<T>::iter_keys().collect();
-        
+
             for event_id in event_ids {
                 if let Some(event) = Self::get_event(event_id) {
                     if !Self::validate_and_process_event(event.clone()).is_ok() {
@@ -269,19 +342,19 @@ pub mod pallet {
                     }
                 }
             }
-        
+
             Ok(())
         }
         fn request_event_from_peers(event_id: u64) -> Result<CustomEvent, Error<T>> {
             let url = Self::construct_url(&format!("/api/events/{}", event_id));
             let response = Self::fetch_data(&url).map_err(|_| <Error<T>>::HttpFetchingError)?;
-        
-            let event: CustomEvent = serde_json::from_slice(&response)
-                .map_err(|_| <Error<T>>::HttpFetchingError)?;
-        
+
+            let event: CustomEvent =
+                serde_json::from_slice(&response).map_err(|_| <Error<T>>::HttpFetchingError)?;
+
             Ok(event)
         }
-        
+
         // fn verify_inclusion_tx(tx: Transaction) -> Result<(), Error<T>> {
         //     // Verify the events included in the transaction
         //     for event in tx.events {
@@ -337,36 +410,34 @@ pub mod pallet {
             }
             Ok(())
         }
-      
-        
+
         fn fetch_data(url: &str) -> Result<Vec<u8>, &'static str> {
             const FETCH_TIMEOUT_PERIOD: u64 = 3000; // in milliseconds
             let request = rt_offchain::http::Request::get(url);
-        
+
             let timeout = sp_io::offchain::timestamp()
                 .add(rt_offchain::Duration::from_millis(FETCH_TIMEOUT_PERIOD));
-        
+
             let pending = request
                 .deadline(timeout)
                 .send()
                 .map_err(|_| "Failed to send request")?;
-        
+
             let response = pending
                 .try_wait(timeout)
                 .map_err(|_| "Timeout while waiting for response")?
                 .map_err(|_| "Failed to receive response")?;
-        
+
             if response.code != 200 {
                 log::error!("Unexpected status code: {}", response.code);
                 return Err("Non-200 status code returned from API");
             }
-        
+
             let body = response.body().collect::<Vec<u8>>();
             log::info!("Response body: {:?}", body);
-        
+
             Ok(body)
         }
-        
 
         fn fetch_address_stake_assets() -> Result<(), &'static str> {
             let url = Self::construct_url("/api/info/address/stake/assets/");
@@ -474,7 +545,7 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        #[pallet::weight(10_000)]
+        // #[pallet::weight(10_000)]
         // pub fn trigger_fetch(origin: OriginFor<T>) -> DispatchResult {
         //     let _who = ensure_signed(origin)?;
 
@@ -488,29 +559,34 @@ pub mod pallet {
         //         }
         //     }
         // }
+        #[pallet::weight(10_000)]
         pub fn manual_fetch(origin: OriginFor<T>) -> DispatchResult {
             ensure_signed(origin)?;
-            const STORAGE_KEY_ASSETS: &[u8] = b"my-pallet::assets";
-            const STORAGE_KEY_POOLS: &[u8] = b"my-pallet::pools";
 
-            let assets_url = Self::construct_url("/api/info/address/stake/assets/");
-            Self::fetch_data(&assets_url).map_err(|_| Error::<T>::HttpFetchingError)?;
-
-            let pools_url = Self::construct_url("/api/info/pools/1");
-            Self::fetch_data(&pools_url).map_err(|_| Error::<T>::HttpFetchingError)?;
-
-
-            Ok(())
+            // Fetch and process data from the priority queue
+            match Self::fetch_and_process_events_from_queue() {
+                Ok(_) => {
+                    Self::deposit_event(Event::DataFetchedSuccessfully);
+                    Ok(())
+                }
+                Err(e) => {
+                    log::error!("Error in manual fetch: {:?}", e);
+                    Err(Error::<T>::HttpFetchingError.into())
+                }
+            }
         }
         #[pallet::weight(10_000)]
-        pub fn submit_inclusion_transaction(origin: OriginFor<T>, events: Vec<CustomEvent>) -> DispatchResult {
+        pub fn submit_inclusion_transaction(
+            origin: OriginFor<T>,
+            events: Vec<CustomEvent>,
+        ) -> DispatchResult {
             // Ensure the call is unsigned to allow offchain workers to submit
             let _who = ensure_none(origin)?;
-             // Verify event sequence and order with committee
-             Self::verify_event_sequence(&events)?;
+            // Verify event sequence and order with committee
+            Self::verify_event_sequence(&events)?;
             // Logic to handle the inclusion of events in the transaction
             // Validate events, ensure proper ordering, etc.
-            
+
             Ok(())
         }
     }
@@ -548,11 +624,3 @@ pub mod pallet {
     }
 }
 
-// Implement Off-Chain Worker for Event Fetching and Processing
-
-// - Added CustomEvent struct and methods for creating and hashing events.
-// - Implemented pallet structure with Config trait and StorageMap for event storage.
-// - Added off-chain worker logic to fetch and process events from an external source.
-// - Implemented leader election logic and inclusion transaction creation.
-// - Enhanced HTTP request handling and error logging.
-// - Added placeholder functions for future integration with priority queue and KV store.
