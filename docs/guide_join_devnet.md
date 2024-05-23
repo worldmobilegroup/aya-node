@@ -1,5 +1,9 @@
 # Join the World Mobile DevNet
 
+Also see the community contributions which you might more comfortable to follow: 
+
+Ricks Guides: https://github.com/ricksteruk/aya_devnet_guide/tree/main
+
 Welcome, lets start!
 
 ## 1. Minimal Server Requirnments
@@ -19,9 +23,16 @@ Login to your server and access the terminal, for example using SSH connection.
 Install dependencies: 
 
 ```bash
-sudo apt upgrade && sudo apt update
-sudo apt install -y git clang curl libssl-dev llvm libudev-dev make protobuf-compiler pkg-config build-essential
+sudo apt update && sudo apt upgrade
+sudo apt install -y curl 
 ```
+
+Optional dependencies, only needed when building from source:
+
+```bash
+sudo apt install -y git clang libssl-dev llvm libudev-dev make protobuf-compiler pkg-config build-essential
+```
+
 ## 3. Set up Build Environment
 
 Install Rust: 
