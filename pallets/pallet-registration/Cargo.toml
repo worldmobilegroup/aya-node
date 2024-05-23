@@ -1,8 +1,8 @@
 [package]
-name = 'chain-listener'
+name = 'pallet-registration'
 version = '1.1.0'
 authors = ['Sylvain Cormier <sylvaincormier@webisoft.com>']
-description = "Listen to events from scrolls"
+description = "Register a node to the network"
 edition = '2021'
 repository = 'https://github.com/worldmobilegroup/aya-node'
 license = 'Apache-2.0'
@@ -24,8 +24,9 @@ sp-consensus-aura = { workspace = true }
 sp-std = {workspace = true}
 serde = { workspace = true }
 serde_json = { workspace = true }
-
+pallet-session = { workspace = true }
 sp-application-crypto = { workspace = true }
+substrate-validator-set = { workspace = true }
 
 
 [dev-dependencies]

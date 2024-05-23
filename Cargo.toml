@@ -144,7 +144,7 @@ pallet-uniques = { git = "https://github.com/paritytech/polkadot-sdk", branch = 
 pallet-im-online = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.9.0", default-features = false }
 #validator-set = { package = 'substrate-validator-set', branch = "master", git = 'https://github.com/gautamdhameja/substrate-validator-set.git', default-features = false }
 substrate-validator-set = { path = "pallets/substrate-validator-set", default-features = false }
-chain-listener = { path = "pallets/chain-listener", default-features = false }
+pallet-registration = { path = "pallets/pallet-registration", default-features = false }
 # Substrate Utility
 frame-benchmarking-cli = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.9.0" }
 prometheus-endpoint = { package = "substrate-prometheus-endpoint", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.9.0" }
@@ -199,7 +199,7 @@ precompile-utils = { git = "https://github.com/polkadot-evm/frontier", branch = 
 aya-runtime = { path = "runtime", default-features = false }
 jsonrpsee-ws-client = { version = '0.22.5' }
 
-trie-db = { git = "https://github.com/paritytech/trie", default-features = false }
+
 sp-application-crypto = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.9.0", default-features = false }
 
 

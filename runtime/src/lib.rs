@@ -71,13 +71,16 @@ use pallet_evm::{
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
+
+
+
 // A few exports that help ease life for downstream crates.
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::Multiplier;
 
-pub use chain_listener;
+pub use pallet_registration;
 
 mod precompiles;
 
@@ -273,6 +276,7 @@ impl frame_system::Config for Runtime {
     /// The set code logic, just the default since we're not a parachain.
     type OnSetCode = ();
     type MaxConsumers = ConstU32<16>;
+    // type AuthorityId = AuraId; 
 }
 
 parameter_types! {
@@ -331,7 +335,7 @@ impl substrate_validator_set::Config for Runtime {
 }
 
 use sp_consensus_aura::ed25519::AuthorityId;
-impl chain_listener::Config for Runtime {
+impl pallet_registration::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
     type AuthorityId = AuthorityId;
@@ -776,7 +780,7 @@ frame_support::construct_runtime!(
         Timestamp: pallet_timestamp,
         Balances: pallet_balances,
         ValidatorSet: substrate_validator_set,
-        ChainListener: chain_listener::{Pallet, Call, Storage, Event<T>},
+        Registration: pallet_registration::{Pallet, Call, Storage, Event<T>},
         Session: pallet_session,
         ImOnline: pallet_im_online,
         Aura: pallet_aura,
