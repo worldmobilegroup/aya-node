@@ -17,11 +17,14 @@ Storage: ~250 GB
 
 Login to your server and access the terminal, for example using SSH connection. 
 
+`do not use the root user - you will need to create a new user account and add it to sudo group`
+
+
 Install dependencies: 
 
 ```bash
-sudo apt upgrade && sudo apt update
-sudo apt install -y git clang curl libssl-dev llvm libudev-dev make protobuf-compiler pkg-config build-essential
+sudo apt update && sudo apt upgrade
+sudo apt install -y curl
 ```
 
 ### Firewall
@@ -29,20 +32,26 @@ The p2p port `30333` needs to be open so your Validator can communicate, either 
 Make sure the port is open in your cloud / network configuration.
 
 ### Set Up UFW Firewall
-To allow port `30333` and ssh access in ufw on your Validator do:
+First set some defaults
 ```bash
-sudo ufw allow 30333
-sudo ufw allow ssh
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
 ```
 
-The RPC port on your Validator should be blocked from the outside:
+To allow port `30333` and ssh access on port `22` in ufw on your Validator do:
 ```bash
-sudo ufw deny 9944
+sudo ufw allow 30333
+sudo ufw limit proto tcp from any to any port 22
 ```
+
+The RPC port `9944` on your Validator should be blocked from the outside.  This is already covered by our default deny incoming.
 
 Enable the firewall:
 ```bash
 sudo ufw enable
+sudo ufw reload
+sudo systemctl restart ssh
+sudo ufw status
 ```
 
 ## 3. Install Aya-Node
@@ -50,6 +59,8 @@ sudo ufw enable
 [Release DevNet AyA Node v0.2.0](https://github.com/worldmobilegroup/aya-node/releases/tag/devnet-v.0.2.0)
 
 Download and copy the `aya-node` and `wm-devnet-chainspec.json` files to your server. The guide aims to be compatible with building from source code so we will adjust file paths. To get the same folder structure as for the build from source option, create the folder `aya-node/target/release` and copy the `aya-node` binary into it. The `wm-devnet-chainspec.json` would be expected in the folder `aya-node/`
+
+NOTE: `${USER}` is a global variable that returns your username.  You do not need to replace this!
 
 ```bash
 cd /home/${USER}
@@ -127,6 +138,7 @@ echo "${AYA_HOME}/target/release/aya-node \
     --port 30333 \
     --rpc-port 9944 \
     --log info \
+    --prometheus-external \
     --bootnodes /dns/devnet-rpc.worldmobilelabs.com/tcp/30340/ws/p2p/12D3KooWRWZpEJygTo38qwwutM1Yo7dQQn8xw1zAAWpfMiAqbmyK" >> start_aya_validator.sh
 sudo chmod +x ./start_aya_validator.sh
 ```
@@ -200,7 +212,7 @@ In case your systemd service is not working properly you can find debugging info
 If everything worked out you should have a running full node / validator which is syncing with the blockchain (but not validating blocks).
 You can see in the logs that the node is importing blocks. 
 
-If you just want to setup a full node you can stop here. 
+(If you just wanted to setup a full node and not a validator you can stop here.)
 
 
 ## 5. Prepare Key Setup
@@ -226,8 +238,9 @@ Secret phrase:       bottom drive obey lake curtain smoke basket hold race lonel
   SS58 Address:      5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY
 ```
 
+You should make a copy of these keys and keep them safe!
 
-Inspect key:
+Inspect key: (example below is for inspecting ALICE's seed phrase - replace it with your own seed )
 ```bash
 ./target/release/aya-node key inspect "bottom drive obey lake curtain smoke basket hold race lonely fit walk"
 ```
@@ -247,8 +260,10 @@ You also need to set the base path of the node, the path were all data for the n
 
 Enter your Secret Seed keys from Step 5 above:  ( REPLACE THIS EXAMPLE SECRET SEED WITH YOUR OWN!! )
 ```bash
-export SECRET_SEED=0xfac7959dbfe72f052e5a0c3c8d6530f202b02fd8f9f5ca3580ec8deb7797479e
+export SECRET_SEED=0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a
 ```
+
+Now just Copy and Paste the code below - it uses the `SECRET_SEED` variable you just entered in the previous step
 
 ```bash
 ./target/release/aya-node key insert \
@@ -312,7 +327,7 @@ Example Output:
 
 The output contains the AURA, GRANDPA and IMONLINE public keys in one large string, we need to split the string up. Each key has 32 bytes, the string is hex encoded, so each key has 64 characters. Each of the keys needs a prefix '0x' to indecate it is hex encoded. The output starts already with '0x' so the first key starts behind the '0x' and is 64 characters long. The second key starts at the 65 character, it has no '0x' prepend yet so we do that. The next key starts at character 130 and also needs a '0x' prefix. All keys should have the same length (32byte or 64 characters) and have a 0x as prefix. 
 
-Tip: Just use the script `./utils/session_key_tools/split_session_key.sh` 
+Tip: Just use the script `./utils/session_key_tools/split_session_key.sh <YOUR_LONG_TEXT_STRING>` 
  
 Example: 
 ```
@@ -380,6 +395,8 @@ You need to get some FERN tokens from the faucet to pay for transaction fees.
 Go to the [Faucet](https://devnet-faucet.worldmobilelabs.com/) paste your EVM account address and request some. 
 
 ![Faucet](assets/faucet.png)
+
+If you go back to Talisman you will notice that it shows you have 20 FERN. These are actually the same 10 FERN tokens being viewed both from the Etherum connection and the Polkadot connection the Aya DevNet.  You only really have 10 FERN tokens.
 
 ### Access the Front-End
 
@@ -452,8 +469,8 @@ Example Output:
 You have done all it needs, the only thing left is to let us know about your validator. Go to this [Form](https://forms.gle/RXjEqJuRGp9AwwBe9) and fill the information. We check twice a day (mornings and evenings in CET) for new validators and add them to the authority set. It takes two epochs until your validator joins the active authority set, an epoch is 24 hours so it can take 3 to 4 days before your validator becomes active. 
 
 To fill the form you will need:
-- the fingerprint of you ENNFT on Cardano mainnet
-- the address you used to register you session keys
+- the fingerprint of your ENNFT on Cardano mainnet
+- the address you used to register you session keys ( Talisman Ethereum wallet address )
 - your valid email address
 - your discord username
 
