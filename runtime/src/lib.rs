@@ -77,7 +77,7 @@ pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::Multiplier;
 
-pub use chain_listener;
+pub use pallet_epoch;
 
 mod precompiles;
 
@@ -331,7 +331,7 @@ impl substrate_validator_set::Config for Runtime {
 }
 
 use sp_consensus_aura::ed25519::AuthorityId;
-impl chain_listener::Config for Runtime {
+impl pallet_epoch::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
     type AuthorityId = AuthorityId;
@@ -776,7 +776,7 @@ frame_support::construct_runtime!(
         Timestamp: pallet_timestamp,
         Balances: pallet_balances,
         ValidatorSet: substrate_validator_set,
-        ChainListener: chain_listener::{Pallet, Call, Storage, Event<T>},
+        Epoch: pallet_epoch::{Pallet, Call, Storage, Event<T>},
         Session: pallet_session,
         ImOnline: pallet_im_online,
         Aura: pallet_aura,

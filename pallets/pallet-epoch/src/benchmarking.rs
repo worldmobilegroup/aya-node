@@ -1,4 +1,4 @@
-//! Benchmarking setup for pallet-chain-listener
+//! Benchmarking setup for pallet-epoch
 #![cfg(feature = "runtime-benchmarks")]
 use super::*;
 

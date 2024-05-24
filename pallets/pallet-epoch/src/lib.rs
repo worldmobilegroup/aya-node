@@ -5,15 +5,13 @@ extern crate serde;
 extern crate sp_std;
 use alloc::string::ToString;
 pub use pallet::*;
-// #[cfg(feature = "std")]
-// use serde::{Deserialize, Serialize};
 #[cfg(test)]
 mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 pub mod weights;
-// pub use weights::*;
+
 use alloc::vec::Vec;
 use frame_support::weights::Weight;
 use frame_support::{dispatch::DispatchResult, pallet_prelude::*, storage::types::StorageMap};
@@ -44,8 +42,15 @@ use sp_runtime::{
 };
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
-use trie_db::{Trie, TrieDB, TrieDBMut, TrieLayout};
+use  substrate_validator_set as validator_set;
 
+
+use sp_runtime::app_crypto::AppPublic;
+use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_core::crypto::KeyTypeId;
+
+
+use pallet_session;
 #[derive(
     Default, Deserialize, Serialize, Debug, Encode, Decode, Clone, PartialEq, Eq, TypeInfo,
 )]
@@ -54,7 +59,6 @@ pub struct CustomEvent {
     pub data: Vec<u8>,
     pub timestamp: u64,
     pub block_height: u64,
-    pub previous_hash: Option<H256>,
 }
 
 impl CustomEvent {
@@ -63,20 +67,13 @@ impl CustomEvent {
         data: Vec<u8>,
         timestamp: u64,
         block_height: u64,
-        previous_hash: Option<H256>,
     ) -> Self {
         CustomEvent {
             id,
             data,
             timestamp,
             block_height,
-            previous_hash,
         }
-    }
-
-    fn calculate_hash(&self) -> H256 {
-        let encoded = self.encode();
-        sp_io::hashing::blake2_256(&encoded).into()
     }
 }
 
@@ -85,15 +82,12 @@ pub mod pallet {
     use super::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
+    pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> + validator_set::Config {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type WeightInfo: WeightInfo;
-        type AuthorityId: Public;
-        // type SubmitTransaction: frame_system::offchain::SendSignedTransaction<Self, AppCrypto, Call<Self>>;
-
-        // Authority identifier for signing transactions
-        // type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
+        type AuthorityId: AppCrypto;
     }
+
 
     #[pallet::pallet]
     #[pallet::without_storage_info]
@@ -107,43 +101,9 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn offchain_worker(block_number: BlockNumberFor<T>) {
-            // if let Err(e) = Self::fetch_and_process_data() {
-            //     log::error!("Error fetching and sending data: {:?}", e);
-            // }
-    
-            // if let Err(e) = Self::fetch_all_events() {
-            //     log::error!("Error fetching all events: {:?}", e);
-            // }
-    
-            // // Fetch remote events
-            // let remote_events = match Self::fetch_remote_events() {
-            //     Ok(events) => events,
-            //     Err(e) => {
-            //         log::error!("Error fetching remote events: {:?}", e);
-            //         return;
-            //     }
-            // };
-    
-            // // Compare local and remote events
-            // let local_events: Vec<CustomEvent> = EventStorage::<T>::iter_values().collect();
-            // let queues_consistent = Self::compare_queues(local_events.clone(), remote_events);
-    
-            // if queues_consistent {
-            //     log::info!("Event queues are consistent across nodes.");
-            // } else {
-            //     log::error!("Event queues are inconsistent across nodes.");
-            // }
-    
-            // // Check if the validator is the leader
-            // if Self::is_leader() {
-            //     // Create and submit an inclusion transaction
-            //     if let Err(e) = Self::create_inclusion_transaction() {
-            //         log::error!("Error creating inclusion transaction: {:?}", e);
-            //     }
-            // }
-
+            // Step 3: Message Processing
             if let Err(e) = Self::fetch_and_process_events_from_queue() {
-                // log::error!("Error fetching and processing events: {:?}", e);
+                log::error!("Error fetching and processing events: {:?}", e);
             }
 
             // Check if the validator is the leader
@@ -156,7 +116,11 @@ pub mod pallet {
         }
     }
 
-    impl<T: Config> Pallet<T> {
+    impl<T: Config> Pallet<T>
+    // where
+    //     T::AuthorityId: From<sr25519::Public> + PartialEq<<T as pallet_session::Config>::ValidatorId>,
+    {
+        // Step 5: Message Cleanup
         fn cleanup_processed_events() {
             // Remove events from storage that have been included in the blockchain
             for event_id in EventStorage::<T>::iter_keys() {
@@ -164,11 +128,30 @@ pub mod pallet {
             }
         }
 
+        // fn fetch_local_keys() -> Vec<T::AuthorityId> {
+        //     // let key_type_id = T::AuthorityId::ID;
+        //     // sp_io::crypto::sr25519_public_keys(key_type_id)
+        //     //     .into_iter()
+        //     //     .map(|key| T::AuthorityId::from(key))
+        //     //     .collect()
+        // }
+
         fn is_leader() -> bool {
-            // Implement your leader election logic here
-            // For simplicity, we assume the current validator is the leader
-            true
+            let validators = validator_set::Validators::<T>::get();
+            let current_index = pallet_session::Pallet::<T>::current_index();
+
+            if let Some(leader) = validators.get(current_index as usize % validators.len()) {
+                // let local_keys = Self::fetch_local_keys();
+
+                // for local_key in local_keys {
+                //     if local_key == *leader {
+                //         return true;
+                //     }
+                // }
+            }
+            false
         }
+    
 
         fn fetch_all_events() -> Result<Vec<u8>, Error<T>> {
             const HTTP_REMOTE_REQUEST: &str = "http://127.0.0.1:5555";
@@ -228,20 +211,9 @@ pub mod pallet {
             // Next we fully read the response body and collect it to a vector of bytes.
             Ok(body)
         }
-        fn compare_queues(local_events: Vec<CustomEvent>, remote_events: Vec<CustomEvent>) -> bool {
-            // Compare local events with remote events
-            // You can compare the hashes of the events to ensure they are consistent
-            // Implement logic to compare event queues
-            // Example: Simple majority vote to decide if the queues are consistent
-            // You can also implement more complex algorithms like PBFT or Raft
 
-            for (local_event, remote_event) in local_events.iter().zip(remote_events.iter()) {
-                if local_event.calculate_hash() != remote_event.calculate_hash() {
-                    return false;
-                }
-            }
-            true
-        }
+       
+
         fn fetch_remote_events() -> Vec<CustomEvent> {
             // Implement the logic to fetch remote events from other nodes.
             // This might involve sending HTTP requests to other nodes and parsing the responses.
@@ -266,8 +238,9 @@ pub mod pallet {
             }
         }
 
+        // Step 4: Message Validation
         fn validate_and_process_event(event: CustomEvent) -> Result<(), Error<T>> {
-            // // Validate the event data
+            // Validate the event data
             if event.timestamp == 0 || event.block_height == 0 {
                 return Err(Error::<T>::InvalidEventData);
             }
@@ -282,19 +255,18 @@ pub mod pallet {
             Ok(())
         }
 
+        // Step 2: Message Storage
         fn store_event_in_mempool(event: CustomEvent) {
-            let previous_event = Some(EventStorage::<T>::get(event.id - 1));
-            let previous_hash = previous_event.map(|e| e.calculate_hash());
-
             let new_event = CustomEvent::new(
                 event.id,
                 event.data,
                 event.timestamp,
                 event.block_height,
-                previous_hash,
             );
             EventStorage::<T>::insert(new_event.id, new_event);
         }
+
+        // Step 3: Message Processing
         fn fetch_and_process_events_from_queue() -> Result<(), Error<T>> {
             // Fetch events from the queue using the RPC call
             let response = Self::fetch_all_events()?;
@@ -307,13 +279,11 @@ pub mod pallet {
 
             Ok(())
         }
+
         fn get_event(event_id: u64) -> Option<CustomEvent> {
             Some(EventStorage::<T>::get(event_id))
         }
-        fn hash_event(event: &CustomEvent) -> H256 {
-            let encoded = event.encode();
-            sp_io::hashing::blake2_256(&encoded).into()
-        }
+
         fn create_inclusion_transaction() -> Result<(), &'static str> {
             let mut events = Vec::new();
             for event_id in EventStorage::<T>::iter_keys() {
@@ -324,12 +294,13 @@ pub mod pallet {
 
             let call = Call::<T>::submit_inclusion_transaction { events };
 
-            // // Submit the transaction
+            // Submit the transaction
             // T::SubmitTransaction::submit_unsigned_transaction(call.into())
             //     .map_err(|_| "Failed to submit transaction")?;
 
             Ok(())
         }
+
         fn synchronize_events_with_peers() -> Result<(), Error<T>> {
             let event_ids: Vec<u64> = EventStorage::<T>::iter_keys().collect();
 
@@ -345,6 +316,7 @@ pub mod pallet {
 
             Ok(())
         }
+
         fn request_event_from_peers(event_id: u64) -> Result<CustomEvent, Error<T>> {
             let url = Self::construct_url(&format!("/api/events/{}", event_id));
             let response = Self::fetch_data(&url).map_err(|_| <Error<T>>::HttpFetchingError)?;
@@ -354,29 +326,6 @@ pub mod pallet {
 
             Ok(event)
         }
-
-        // fn verify_inclusion_tx(tx: Transaction) -> Result<(), Error<T>> {
-        //     // Verify the events included in the transaction
-        //     for event in tx.events {
-        //         if !Self::is_event_in_mempool(event) {
-        //             // Make a callback to request the event
-        //             Self::request_event_from_follower(event.id)?;
-        //         }
-        //     }
-
-        //     Ok(())
-        // }
-
-        // fn is_event_in_mempool(event: Event) -> bool {
-        //     // Check if the event is in the local mempool
-        //     Mempool::<T>::get().contains(&event)
-        // }
-
-        // fn request_event_from_follower(event_id: u64) -> Result<Event, Error<T>> {
-        //     // Make an RPC call to request the event from the Chain-Follower
-        //     let event = // RPC call logic...
-        //     Ok(event)
-        // }
 
         fn construct_url(path: &str) -> String {
             const DEFAULT_HOST: &str = "http://scrolls-1";
@@ -507,17 +456,17 @@ pub mod pallet {
             // save to local storage queue
             Ok(())
         }
+
         fn verify_event_sequence(events: &[CustomEvent]) -> Result<(), &'static str> {
             // Implement logic to verify the sequence and order of events
             // This function should compare events with the local mempool or state
             for i in 1..events.len() {
-                if events[i].previous_hash != Some(events[i - 1].calculate_hash()) {
-                    return Err("Event sequence is invalid");
-                }
+                // TODO: Implement sequence verification logic
             }
             Ok(())
         }
     }
+
     use scale_info::prelude::string::String;
 
     #[derive(Deserialize, Debug)]
@@ -545,20 +494,6 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        // #[pallet::weight(10_000)]
-        // pub fn trigger_fetch(origin: OriginFor<T>) -> DispatchResult {
-        //     let _who = ensure_signed(origin)?;
-
-        //     match Self::fetch_and_process_data() {
-        //         Ok(_) => {
-        //             Self::deposit_event(Event::DataFetchedSuccessfully);
-        //             Ok(())
-        //         },
-        //         Err(_e) => {
-        //             Err(Error::<T>::HttpFetchingError.into())
-        //         }
-        //     }
-        // }
         #[pallet::weight(10_000)]
         pub fn manual_fetch(origin: OriginFor<T>) -> DispatchResult {
             ensure_signed(origin)?;
@@ -575,6 +510,7 @@ pub mod pallet {
                 }
             }
         }
+
         #[pallet::weight(10_000)]
         pub fn submit_inclusion_transaction(
             origin: OriginFor<T>,
@@ -623,4 +559,3 @@ pub mod pallet {
         }
     }
 }
-
