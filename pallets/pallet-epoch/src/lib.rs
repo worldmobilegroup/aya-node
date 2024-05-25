@@ -177,9 +177,9 @@ pub mod pallet {
         // Step 5: Message Cleanup
         fn cleanup_processed_events() {
             // Remove events from storage that have been included in the blockchain
-            // for (event_id, _) in EventStorage::<T>::iter() {
-            //     EventStorage::<T>::remove(event_id);
-            // }
+            for (event_id, _) in EventStorage::<T>::iter() {
+                EventStorage::<T>::remove(event_id);
+            }
         }
 
         // fn fetch_local_keys() -> Vec<T::AuthorityId> {
