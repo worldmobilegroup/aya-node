@@ -12,7 +12,7 @@ mod tests;
 mod benchmarking;
 pub mod weights;
 
-use alloc::vec::Vec;
+
 use frame_support::weights::Weight;
 use frame_support::{dispatch::DispatchResult, pallet_prelude::*, storage::types::StorageMap};
 use frame_system::{offchain::*, pallet_prelude::*};
@@ -30,7 +30,7 @@ use sp_core::Public;
 use sp_runtime::offchain::*;
 
 use frame_support::unsigned::TransactionSource;
-use scale_info::TypeInfo;
+
 use sp_core::offchain::Duration;
 use sp_runtime::offchain::http::Request;
 use sp_runtime::{
@@ -44,21 +44,58 @@ use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
 use  substrate_validator_set as validator_set;
 
+use pallet_session;
 
 use sp_runtime::app_crypto::AppPublic;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::crypto::KeyTypeId;
+use scale_info::TypeInfo;
 
 
-use pallet_session;
-#[derive(
-    Default, Deserialize, Serialize, Debug, Encode, Decode, Clone, PartialEq, Eq, TypeInfo,
-)]
+
+
+
+use sp_std::vec::Vec;  
+use frame_support::pallet_prelude::{BoundedVec, MaxEncodedLen, Get};
+use alloc::string::String;
+
+
+// Define the type for the maximum length
+pub struct MaxDataLength;
+
+impl Get<u32> for MaxDataLength {
+    fn get() -> u32 {
+        1024 // Define your max length here
+    }
+}
+
+
+#[derive(Default, Deserialize, Serialize, Encode, Decode, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+pub struct CustomData(pub BoundedVec<u8, MaxDataLength>);
+
+
+
+impl CustomData {
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+
+#[derive(Default, Deserialize, Serialize, Encode, Decode, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen, RuntimeDebug)]
 pub struct CustomEvent {
     pub id: u64,
-    pub data: Vec<u8>,
+    pub data: CustomData,
     pub timestamp: u64,
     pub block_height: u64,
+    pub last_epoch: u64,
+    pub last_blockhash: BoundedVec<u8, MaxDataLength>,
+    pub last_slot: u64,
+    pub new_epoch: u64,
+    pub new_slot: u64,
+    pub new_blockhash: BoundedVec<u8, MaxDataLength>,
+    pub epoch_nonce: BoundedVec<u8, MaxDataLength>,
+    pub extra_entropy: Option<BoundedVec<u8, MaxDataLength>>,
 }
 
 impl CustomEvent {
@@ -67,15 +104,32 @@ impl CustomEvent {
         data: Vec<u8>,
         timestamp: u64,
         block_height: u64,
-    ) -> Self {
-        CustomEvent {
+        last_epoch: u64,
+        last_blockhash: Vec<u8>,
+        last_slot: u64,
+        new_epoch: u64,
+        new_slot: u64,
+        new_blockhash: Vec<u8>,
+        epoch_nonce: Vec<u8>,
+        extra_entropy: Option<Vec<u8>>,
+    ) -> Result<Self, &'static str> {
+        Ok(CustomEvent {
             id,
-            data,
+            data: CustomData(BoundedVec::try_from(data).map_err(|_| "Data exceeds maximum length")?),
             timestamp,
             block_height,
-        }
+            last_epoch,
+            last_blockhash: BoundedVec::try_from(last_blockhash).map_err(|_| "Last blockhash exceeds maximum length")?,
+            last_slot,
+            new_epoch,
+            new_slot,
+            new_blockhash: BoundedVec::try_from(new_blockhash).map_err(|_| "New blockhash exceeds maximum length")?,
+            epoch_nonce: BoundedVec::try_from(epoch_nonce).map_err(|_| "Epoch nonce exceeds maximum length")?,
+            extra_entropy: extra_entropy.map(|e| BoundedVec::try_from(e).map_err(|_| "Extra entropy exceeds maximum length")).transpose()?,
+        })
     }
 }
+
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -123,9 +177,9 @@ pub mod pallet {
         // Step 5: Message Cleanup
         fn cleanup_processed_events() {
             // Remove events from storage that have been included in the blockchain
-            for event_id in EventStorage::<T>::iter_keys() {
-                EventStorage::<T>::remove(event_id);
-            }
+            // for (event_id, _) in EventStorage::<T>::iter() {
+            //     EventStorage::<T>::remove(event_id);
+            // }
         }
 
         // fn fetch_local_keys() -> Vec<T::AuthorityId> {
@@ -233,9 +287,9 @@ pub mod pallet {
         }
 
         fn finalize_transactions(validated_events: Vec<CustomEvent>) {
-            for event in validated_events {
-                Self::store_event_in_mempool(event);
-            }
+            // for event in validated_events {
+            //     Self::store_event_in_mempool(event);
+            // }
         }
 
         // Step 4: Message Validation
@@ -244,39 +298,33 @@ pub mod pallet {
             if event.timestamp == 0 || event.block_height == 0 {
                 return Err(Error::<T>::InvalidEventData);
             }
-
-            if event.data.is_empty() {
+    
+            if event.data.0.is_empty() {
                 return Err(Error::<T>::InvalidEventData);
             }
-
+    
             // Process the event (e.g., store in mempool)
-            Self::store_event_in_mempool(event);
-
+            Self::store_event_in_mempool(event).map_err(|_| Error::<T>::StorageOverflow)?;
+    
             Ok(())
         }
 
         // Step 2: Message Storage
-        fn store_event_in_mempool(event: CustomEvent) {
-            let new_event = CustomEvent::new(
-                event.id,
-                event.data,
-                event.timestamp,
-                event.block_height,
-            );
-            EventStorage::<T>::insert(new_event.id, new_event);
+        fn store_event_in_mempool(event: CustomEvent) -> Result<(), &'static str> {
+            EventStorage::<T>::insert(event.id, event);
+            Ok(())
         }
 
         // Step 3: Message Processing
         fn fetch_and_process_events_from_queue() -> Result<(), Error<T>> {
-            // Fetch events from the queue using the RPC call
             let response = Self::fetch_all_events()?;
             let events: Vec<(CustomEvent, i32)> =
                 serde_json::from_slice(&response).map_err(|_| <Error<T>>::HttpFetchingError)?;
-
+    
             for (event, _priority) in events {
                 Self::validate_and_process_event(event)?;
             }
-
+    
             Ok(())
         }
 
@@ -286,33 +334,33 @@ pub mod pallet {
 
         fn create_inclusion_transaction() -> Result<(), &'static str> {
             let mut events = Vec::new();
-            for event_id in EventStorage::<T>::iter_keys() {
-                if let event = EventStorage::<T>::get(event_id) {
-                    events.push(event);
-                }
+            for (event_id, event) in EventStorage::<T>::iter() {
+                events.push(event);
             }
-
+    
             let call = Call::<T>::submit_inclusion_transaction { events };
-
-            // Submit the transaction
+    
+            // // Submit the transaction
             // T::SubmitTransaction::submit_unsigned_transaction(call.into())
             //     .map_err(|_| "Failed to submit transaction")?;
-
+    
             Ok(())
+
+           
         }
 
         fn synchronize_events_with_peers() -> Result<(), Error<T>> {
-            let event_ids: Vec<u64> = EventStorage::<T>::iter_keys().collect();
+            // let event_ids: Vec<u64> = EventStorage::<T>::iter_keys().collect();
 
-            for event_id in event_ids {
-                if let Some(event) = Self::get_event(event_id) {
-                    if !Self::validate_and_process_event(event.clone()).is_ok() {
-                        // Request the event from other workers
-                        let missing_event = Self::request_event_from_peers(event_id)?;
-                        Self::validate_and_process_event(missing_event)?;
-                    }
-                }
-            }
+            // for event_id in event_ids {
+            //     if let Some(event) = Self::get_event(event_id) {
+            //         if !Self::validate_and_process_event(event.clone()).is_ok() {
+            //             // Request the event from other workers
+            //             let missing_event = Self::request_event_from_peers(event_id)?;
+            //             Self::validate_and_process_event(missing_event)?;
+            //         }
+            //     }
+            // }
 
             Ok(())
         }
@@ -457,14 +505,7 @@ pub mod pallet {
             Ok(())
         }
 
-        fn verify_event_sequence(events: &[CustomEvent]) -> Result<(), &'static str> {
-            // Implement logic to verify the sequence and order of events
-            // This function should compare events with the local mempool or state
-            for i in 1..events.len() {
-                // TODO: Implement sequence verification logic
-            }
-            Ok(())
-        }
+      
     }
 
     use scale_info::prelude::string::String;
@@ -519,7 +560,7 @@ pub mod pallet {
             // Ensure the call is unsigned to allow offchain workers to submit
             let _who = ensure_none(origin)?;
             // Verify event sequence and order with committee
-            Self::verify_event_sequence(&events)?;
+            
             // Logic to handle the inclusion of events in the transaction
             // Validate events, ensure proper ordering, etc.
 
