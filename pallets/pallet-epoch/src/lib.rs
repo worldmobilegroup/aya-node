@@ -136,11 +136,19 @@ pub mod pallet {
     use super::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> + validator_set::Config {
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-        type WeightInfo: WeightInfo;
-        type AuthorityId: AppCrypto;
-    }
+pub trait Config:
+    frame_system::Config
+    + CreateSignedTransaction<Call<Self>>
+    + validator_set::Config
+    + pallet_session::Config // Add this line to include the pallet_session::Config trait
+{
+    type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+    type WeightInfo: WeightInfo;
+    
+
+    // Add the necessary trait bound for AuthorityId
+    type AuthorityId: PartialEq<<Self as pallet_session::Config>::ValidatorId>;
+}
 
 
     #[pallet::pallet]
@@ -153,7 +161,9 @@ pub mod pallet {
         StorageMap<_, Blake2_128Concat, u64, CustomEvent, ValueQuery>;
 
     #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> 
+    
+    {
         fn offchain_worker(block_number: BlockNumberFor<T>) {
             // Step 3: Message Processing
             if let Err(e) = Self::fetch_and_process_events_from_queue() {
@@ -171,8 +181,9 @@ pub mod pallet {
     }
 
     impl<T: Config> Pallet<T>
-    // where
-    //     T::AuthorityId: From<sr25519::Public> + PartialEq<<T as pallet_session::Config>::ValidatorId>,
+    
+
+    
     {
         // Step 5: Message Cleanup
         fn cleanup_processed_events() {

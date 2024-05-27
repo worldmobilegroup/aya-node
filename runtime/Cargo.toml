@@ -72,7 +72,7 @@ pallet-evm-precompile-modexp = { workspace = true }
 pallet-evm-precompile-sha3fips = { workspace = true }
 pallet-evm-precompile-simple = { workspace = true }
 pallet-hotfix-sufficients = { workspace = true }
-
+sp-application-crypto = { workspace = true }
 [build-dependencies]
 substrate-wasm-builder = { workspace = true, optional = true }
 
@@ -81,6 +81,7 @@ default = ["std", "with-rocksdb-weights"]
 with-rocksdb-weights = []
 with-paritydb-weights = []
 std = [
+	"sp-application-crypto/std",
 	"scale-codec/std",
 	"scale-info/std",
 	# Substrate
@@ -153,3 +154,4 @@ runtime-benchmarks = [
 	"pallet-hotfix-sufficients/runtime-benchmarks",
 	"pallet-epoch/runtime-benchmarks",
 ]
+try-runtime = []

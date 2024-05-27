@@ -71,6 +71,8 @@ use pallet_evm::{
 };
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
+use sp_core::crypto::AccountId32;
+use fp_account::AccountId20;
 // A few exports that help ease life for downstream crates.
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
@@ -334,7 +336,7 @@ use sp_consensus_aura::ed25519::AuthorityId;
 impl pallet_epoch::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
-    type AuthorityId = AuthorityId;
+    type AuthorityId = AccountId20;
 }
 
 parameter_types! {
@@ -344,7 +346,7 @@ parameter_types! {
 
 impl pallet_session::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type ValidatorId = AccountId;
+    type ValidatorId = AccountId20;
     type ValidatorIdOf = substrate_validator_set::ValidatorOf<Self>;
     type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
     type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;

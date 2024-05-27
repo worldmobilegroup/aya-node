@@ -844,6 +844,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-api",
+ "sp-application-crypto",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-consensus-grandpa",

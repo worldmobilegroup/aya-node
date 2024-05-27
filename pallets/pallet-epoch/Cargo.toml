@@ -51,6 +51,7 @@ std = [
 	"serde/std",
 	"serde_json/std",
 	"sp-application-crypto/std",
+	 "sp-core/std",
 
 ]
 runtime-benchmarks = [
