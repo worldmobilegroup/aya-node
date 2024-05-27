@@ -112,7 +112,7 @@ For more information on git see: [A beginner's guide to Git version control](htt
 
 If you do not want to build the aya-node from source, you can use the precompiled binaries: 
 
-[Release DevNet AyA Node v0.2.0](https://github.com/worldmobilegroup/aya-node/releases/tag/devnet-v.0.2.0)
+[Release DevNet AyA Node v0.3.0](https://github.com/worldmobilegroup/aya-node/releases/tag/devnet-v0.3.0)
 
 Download and copy the `aya-node` and `wm-devnet-chainspec.json` files to your server. The guide assumes you built from source so make sure you adjust file paths. To get the same folder structure as for the build from source option, create the folder `aya-node/target/release` and copy the `aya-node` binary into it. The `wm-devnet-chainspec.json` would be expected in the folder `aya-node/`.
 
