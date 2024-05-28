@@ -12,28 +12,20 @@ extern crate frame_benchmarking; // Frontier
 use fp_account::EthereumSignature;
 use fp_evm::weight_per_gas;
 use fp_rpc::TransactionStatus;
-use frame_support::{
-    derive_impl,
-    dynamic_params::dynamic_pallet_params,
-    dynamic_params::dynamic_params,
-    genesis_builder_helper::{build_config, create_default_config},
-    pallet_prelude::{DispatchClass, MaxEncodedLen, RuntimeDebug},
-    parameter_types,
-    traits::{
-        AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU8, EnsureOriginWithArg,
-        FindAuthor, InstanceFilter, Nothing, OnFinalize, OnTimestampSet,
-    },
-    weights::{
-        constants::{BlockExecutionWeight, ExtrinsicBaseWeight, WEIGHT_REF_TIME_PER_MILLIS},
-        IdentityFee, Weight,
-    },
-};
+use frame_support::{derive_impl, dynamic_params::dynamic_pallet_params, dynamic_params::dynamic_params, genesis_builder_helper::{build_config, create_default_config}, pallet_prelude::{DispatchClass, MaxEncodedLen, RuntimeDebug}, PalletId, parameter_types, traits::{
+    AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU8, EnsureOriginWithArg,
+    FindAuthor, InstanceFilter, Nothing, OnFinalize, OnTimestampSet,
+}, weights::{
+    constants::{BlockExecutionWeight, ExtrinsicBaseWeight, WEIGHT_REF_TIME_PER_MILLIS},
+    IdentityFee, Weight,
+}};
+use frame_support::traits::tokens::pay::PayAssetFromAccount;
 // Substrate FRAME
 #[cfg(feature = "with-paritydb-weights")]
 use frame_support::weights::constants::ParityDbWeight as RuntimeDbWeight;
 #[cfg(feature = "with-rocksdb-weights")]
 use frame_support::weights::constants::RocksDbWeight as RuntimeDbWeight;
-use frame_system::{EnsureRoot, EnsureSigned};
+use frame_system::{EnsureRoot, EnsureSigned, EnsureWithSuccess};
 use pallet_identity::legacy::IdentityInfo;
 
 // A few exports that help ease life for downstream crates.
@@ -58,21 +50,13 @@ use sp_core::{
     crypto::{ByteArray, KeyTypeId},
     OpaqueMetadata, H160, H256, U256,
 };
-use sp_runtime::{
-    create_runtime_str, generic,
-    generic::Era,
-    impl_opaque_keys,
-    traits::{
-        BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, Get, IdentifyAccount,
-        IdentityLookup, NumberFor, One, OpaqueKeys, PostDispatchInfoOf, UniqueSaturatedInto,
-        Verify,
-    },
-    transaction_validity::{
-        TransactionPriority, TransactionSource, TransactionValidity, TransactionValidityError,
-    },
-    ApplyExtrinsicResult, ConsensusEngineId, ExtrinsicInclusionMode, Perbill, Permill,
-    SaturatedConversion,
-};
+use sp_runtime::{create_runtime_str, generic, generic::Era, impl_opaque_keys, traits::{
+    BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, Get, IdentifyAccount,
+    IdentityLookup, NumberFor, One, OpaqueKeys, PostDispatchInfoOf, UniqueSaturatedInto,
+    Verify,
+}, transaction_validity::{
+    TransactionPriority, TransactionSource, TransactionValidity, TransactionValidityError,
+}, ApplyExtrinsicResult, ConsensusEngineId, ExtrinsicInclusionMode, Perbill, Permill, SaturatedConversion, Percent};
 use sp_std::{marker::PhantomData, prelude::*};
 use sp_version::RuntimeVersion;
 use static_assertions::const_assert;
@@ -865,6 +849,8 @@ frame_support::construct_runtime!(
         Multisig: pallet_multisig,
         Recovery: pallet_recovery,
         Uniques: pallet_uniques,
+        Identity: pallet_identity,
+        Treasury: pallet_treasury,
     }
 );
 
@@ -883,6 +869,52 @@ impl pallet_multisig::Config for Runtime {
     type DepositFactor = DepositFactor;
     type MaxSignatories = ConstU32<100>;
     type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
+	pub const ProposalBond: Permill = Permill::from_percent(5);
+	pub const ProposalBondMinimum: Balance = 1 * DOLLARS;
+	pub const SpendPeriod: BlockNumber = 1 * DAYS;
+	pub const Burn: Permill = Permill::from_percent(50);
+	pub const TipCountdown: BlockNumber = 1 * DAYS;
+	pub const TipFindersFee: Percent = Percent::from_percent(20);
+	pub const TipReportDepositBase: Balance = 1 * DOLLARS;
+	pub const DataDepositPerByte: Balance = 1 * CENTS;
+	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
+	pub const MaximumReasonLength: u32 = 300;
+	pub const MaxApprovals: u32 = 100;
+	pub const MaxBalance: Balance = Balance::max_value();
+	pub const SpendPayoutPeriod: BlockNumber = 30 * DAYS;
+
+    pub TreasuryAccount: AccountId = Treasury::account_id();
+
+}
+
+impl pallet_treasury::Config for Runtime {
+    type PalletId = TreasuryPalletId;
+    type Currency = Balances;
+    type ApproveOrigin = EnsureRoot<AccountId>;
+    type RejectOrigin = EnsureRoot<AccountId>;
+    type RuntimeEvent = RuntimeEvent;
+    type OnSlash = ();
+    type ProposalBond = ProposalBond;
+    type ProposalBondMinimum = ProposalBondMinimum;
+    type ProposalBondMaximum = ();
+    type SpendPeriod = SpendPeriod;
+    type Burn = Burn;
+    type BurnDestination = ();
+    type SpendFunds = Bounties;
+    type WeightInfo = pallet_treasury::weights::SubstrateWeight<Runtime>;
+    type MaxApprovals = MaxApprovals;
+    type SpendOrigin = EnsureWithSuccess<EnsureRoot<AccountId>, AccountId, MaxBalance>;
+    type AssetKind = u32;
+    type Beneficiary = AccountId;
+    type BeneficiaryLookup = Indices;
+    type Paymaster = PayAssetFromAccount<Assets, TreasuryAccount>;
+    type BalanceConverter = AssetRate;
+    type PayoutPeriod = SpendPayoutPeriod;
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = ();
 }
 
 parameter_types! {
