@@ -57,6 +57,7 @@ pallet-uniques = { workspace = true }
 pallet-im-online = { workspace = true }
 pallet-proxy = { workspace = true }
 substrate-validator-set = { workspace = true }
+pallet-identity = { workspace = true }
 
 # Frontier
 fp-account = { workspace = true, features = ["serde"] }
@@ -125,6 +126,7 @@ std = [
 	"pallet-proxy/std",
 	"substrate-validator-set/std",
 	"pallet-im-online/std",
+	"pallet-identity/std",
 	# Frontier
 	"fp-account/std",
 	"fp-evm/std",

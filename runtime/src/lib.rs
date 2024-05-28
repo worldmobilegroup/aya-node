@@ -34,6 +34,8 @@ use frame_support::weights::constants::ParityDbWeight as RuntimeDbWeight;
 #[cfg(feature = "with-rocksdb-weights")]
 use frame_support::weights::constants::RocksDbWeight as RuntimeDbWeight;
 use frame_system::{EnsureRoot, EnsureSigned};
+use pallet_identity::legacy::IdentityInfo;
+
 // A few exports that help ease life for downstream crates.
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
@@ -881,6 +883,38 @@ impl pallet_multisig::Config for Runtime {
     type DepositFactor = DepositFactor;
     type MaxSignatories = ConstU32<100>;
     type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
+	// difference of 26 bytes on-chain for the registration and 9 bytes on-chain for the identity
+	// information, already accounted for by the byte deposit
+	pub const BasicDeposit: Balance = deposit(1, 17);
+	pub const ByteDeposit: Balance = deposit(0, 1);
+	pub const SubAccountDeposit: Balance = 2 * DOLLARS;   // 53 bytes on-chain
+	pub const MaxSubAccounts: u32 = 100;
+	pub const MaxAdditionalFields: u32 = 100;
+	pub const MaxRegistrars: u32 = 20;
+}
+
+impl pallet_identity::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type Currency = Balances;
+    type BasicDeposit = BasicDeposit;
+    type ByteDeposit = ByteDeposit;
+    type SubAccountDeposit = SubAccountDeposit;
+    type MaxSubAccounts = MaxSubAccounts;
+    type IdentityInformation = IdentityInfo<MaxAdditionalFields>;
+    type MaxRegistrars = MaxRegistrars;
+    type Slashed = Treasury;
+    type ForceOrigin = EnsureRoot<AccountId>;
+    type RegistrarOrigin = EnsureRoot<AccountId>;
+    type OffchainSignature = Signature;
+    type SigningPublicKey = <Signature as Verify>::Signer;
+    type UsernameAuthorityOrigin = EnsureRoot<Self::AccountId>;
+    type PendingUsernameExpiration = ConstU32<{ 7 * DAYS }>;
+    type MaxSuffixLength = ConstU32<7>;
+    type MaxUsernameLength = ConstU32<32>;
+    type WeightInfo = pallet_identity::weights::SubstrateWeight<Runtime>;
 }
 
 #[derive(Clone)]

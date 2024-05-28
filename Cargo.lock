@@ -770,6 +770,7 @@ dependencies = [
  "pallet-evm-precompile-simple",
  "pallet-grandpa",
  "pallet-hotfix-sufficients",
+ "pallet-identity",
  "pallet-im-online",
  "pallet-indices",
  "pallet-insecure-randomness-collective-flip",
@@ -2179,6 +2180,26 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "enumflags2"
+version = "0.7.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3278c9d5fb675e0a51dabcf4c0d355f692b064171535ba72361be1528a9d8e8d"
+dependencies = [
+ "enumflags2_derive",
+]
+
+[[package]]
+name = "enumflags2_derive"
+version = "0.7.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c785274071b1b420972453b306eeca06acf4633829db4223b58a2a8c5953bc4"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.60",
 ]
 
 [[package]]
@@ -5703,6 +5724,23 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core",
+ "sp-runtime",
+ "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.9.0)",
+]
+
+[[package]]
+name = "pallet-identity"
+version = "28.0.0"
+source = "git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.9.0#3c3d6fceb82372a3019b37117aa453d564b212de"
+dependencies = [
+ "enumflags2",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io",
  "sp-runtime",
  "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.9.0)",
 ]
