@@ -635,5 +635,58 @@ sudo ufw deny 9944
 
 Enable the firewall:
 ```bash
-sufo ufw enable
+sudo ufw enable
+```
+
+## Extra Information
+
+### --bootnodes Parameter
+When you start you AyA-Node you can give several parameters to the node, some of them override or extends the information which are present in the `wm-devnet-chainspec.json`. The `--bootnodes` parameter is definign what aya-nodes you want to use to get your initial connection and start p2p discovery. 
+
+Lets take a look on the start command:
+
+```bash
+aya-node \
+    --base-path ${AYA_HOME}/data/validator \
+    --validator \
+    --chain ${AYA_HOME}/wm-devnet-chainspec.json \
+    --port 30333 \
+    --rpc-port 9944 \
+    --log info \
+    --bootnodes /dns/devnet-rpc.worldmobilelabs.com/tcp/30340/ws/p2p/12D3KooWRWZpEJygTo38qwwutM1Yo7dQQn8xw1zAAWpfMiAqbmyK
+```
+
+The `--base-path` determines the folder where we store the data of the blockchain and all the node needs for it
+
+The `--validator` tells the node it is supposed to participate in block production and is not just a full node listening to the blockchain
+
+The file given in `--chain` is the genesis config of the blockchain.
+
+The parameters `--port` and `--rpc-port` define the ports to use for p2p connections and the RPC interface.
+
+`--log` defines the log level you will see using e.g. `journalctrl`
+
+Which brings us to the last parameter `--bootnodes` this paramter overrides the `bootnodes` specified in the `wm-devnet-chainspec.json`. The command line parameter `--bootnodes` takes a space sperated list, it is possible to give as many bootnodes as you want but they must belong to the same blockchain (run with the wm-devnet-chainspec.json).
+
+`/dns/devnet-rpc.worldmobilelabs.com/tcp/30340/ws/p2p/12D3KooWRWZpEJygTo38qwwutM1Yo7dQQn8xw1zAAWpfMiAqbmyK` is the offcial DevNet full and it has a URL to connect to it. This is why we start with `/dns/`. Followed is the URL we want to connect to, in this case the DevNet full node of wm `devnet-rpc.worldmobilelabs.com`. We specify the protocol, port interface to use `/tcp/30340/ws/p2p` (`ws` is use websocket). The last argument of the connection string is the NodeId, it is shown when you start your node and is the unique identifier in the network of your node.
+
+
+
+Another connection string using IP-Addresses looks like this: 
+`/ip4/127.0.0.1/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp`
+
+Here we connect via IPv4 `/ip4` to our localhost `/127.0.0.1` via `tcp` protocol to port `30333` for `p2p` connection and the expected node at this address is `12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp`.
+
+If we want to give both as a bootnode to our aya-node we would do:
+
+```bash
+aya-node \
+    --base-path ${AYA_HOME}/data/validator \
+    --validator \
+    --chain ${AYA_HOME}/wm-devnet-chainspec.json \
+    --port 30333 \
+    --rpc-port 9944 \
+    --log info \
+    --bootnodes /dns/devnet-rpc.worldmobilelabs.com/tcp/30340/ws/p2p/12D3KooWRWZpEJygTo38qwwutM1Yo7dQQn8xw1zAAWpfMiAqbmyK
+                /ip4/127.0.0.1/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp
 ```
