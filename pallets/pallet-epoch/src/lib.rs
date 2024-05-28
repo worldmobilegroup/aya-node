@@ -59,6 +59,13 @@ use sp_std::vec::Vec;
 use frame_support::pallet_prelude::{BoundedVec, MaxEncodedLen, Get};
 use alloc::string::String;
 
+use sp_runtime::traits::AccountIdConversion;
+
+use sp_runtime::AccountId32;
+
+use sp_runtime::MultiSigner;
+use sp_runtime::traits::{IdentifyAccount, Verify};
+
 
 // Define the type for the maximum length
 pub struct MaxDataLength;
@@ -140,14 +147,16 @@ pub trait Config:
     frame_system::Config
     + CreateSignedTransaction<Call<Self>>
     + validator_set::Config
-    + pallet_session::Config // Add this line to include the pallet_session::Config trait
+    + pallet_session::Config 
 {
     type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
     type WeightInfo: WeightInfo;
     
-
-    // Add the necessary trait bound for AuthorityId
-    type AuthorityId: PartialEq<<Self as pallet_session::Config>::ValidatorId>;
+    type AuthorityId: AppPublic + From<sp_core::sr25519::Public>; // Correct AppPublic usage
+    type ValidatorId: From<Self::AccountId> + Into<AccountId32>;
+    
+    
+    
 }
 
 
@@ -182,7 +191,12 @@ pub trait Config:
 
     impl<T: Config> Pallet<T>
     
-
+    where
+    T::AuthorityId: AppCrypto,
+    // T::AccountId: From<AccountId32> + IdentifyAccount<AccountId = T::AccountId>,
+    // T::ValidatorId: From<T::AccountId>,
+    // AccountId32: From<T::ValidatorId>,
+    
     
     {
         // Step 5: Message Cleanup
@@ -193,27 +207,37 @@ pub trait Config:
             }
         }
 
-        // fn fetch_local_keys() -> Vec<T::AuthorityId> {
-        //     // let key_type_id = T::AuthorityId::ID;
-        //     // sp_io::crypto::sr25519_public_keys(key_type_id)
-        //     //     .into_iter()
-        //     //     .map(|key| T::AuthorityId::from(key))
-        //     //     .collect()
-        // }
+        fn fetch_local_keys() -> Vec<T::AuthorityId> {
+            let key_type_id = T::AuthorityId::ID;
+            sp_io::crypto::sr25519_public_keys(key_type_id)
+                .into_iter()
+                .map(|key| T::AuthorityId::from(key))
+                .collect()
+            
+        }
 
+        
         fn is_leader() -> bool {
-            let validators = validator_set::Validators::<T>::get();
-            let current_index = pallet_session::Pallet::<T>::current_index();
-
-            if let Some(leader) = validators.get(current_index as usize % validators.len()) {
-                // let local_keys = Self::fetch_local_keys();
-
-                // for local_key in local_keys {
-                //     if local_key == *leader {
-                //         return true;
-                //     }
-                // }
-            }
+            // let validators = validator_set::Validators::<T>::get();
+            // let current_index = pallet_session::Pallet::<T>::current_index();
+            
+            // if let Some(leader) = validators.get(current_index as usize % validators.len()) {
+            //     let leader_account_id = leader.clone(); // Use the leader directly as AccountId
+            //     let local_keys = Self::fetch_local_keys();
+                
+            //     for local_key in local_keys {
+            //         // Convert the local key to a MultiSigner
+            //         let multi_signer = MultiSigner::from(local_key.into());
+                    
+            //         // Convert the MultiSigner to an AccountId
+            //         let local_key_account_id: T::AccountId = multi_signer.into_account();
+                    
+            //         // Check if the local key account ID matches the leader's account ID
+            //         if local_key_account_id == leader_account_id {
+            //             return true;
+            //         }
+            //     }
+            // }
             false
         }
     

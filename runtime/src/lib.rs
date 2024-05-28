@@ -12,6 +12,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 use scale_codec::{Decode, Encode};
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+
 use sp_consensus_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
 use sp_core::{
     crypto::{ByteArray, KeyTypeId},
@@ -247,7 +248,8 @@ impl frame_system::Config for Runtime {
     /// The hashing algorithm used.
     type Hashing = Hashing;
     /// The identifier used to distinguish between accounts.
-    type AccountId = AccountId;
+    // type AccountId = AccountId;
+    type AccountId = AccountId20;
     /// The lookup mechanism to get account ID from whatever is passed in dispatchers.
     type Lookup = IdentityLookup<AccountId>;
     /// The block type.
@@ -332,11 +334,43 @@ impl substrate_validator_set::Config for Runtime {
     type WeightInfo = ();
 }
 
-use sp_consensus_aura::ed25519::AuthorityId;
+
+
+
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub struct ValidatorId(pub AccountId20);
+
+impl From<ValidatorId> for AccountId32 {
+    fn from(val: ValidatorId) -> Self {
+        let mut bytes = [0u8; 32];
+        let account_bytes: &[u8] = val.0.as_ref();
+        bytes[0..20].copy_from_slice(&account_bytes[0..20]);
+        AccountId32::from(bytes)
+    }
+}
+
+impl From<AccountId20> for ValidatorId {
+    fn from(account_id: AccountId20) -> Self {
+        ValidatorId(account_id)
+    }
+}
+
+impl From<ValidatorId> for AccountId20 {
+    fn from(val: ValidatorId) -> Self {
+        val.0
+    }
+}
+
+
+
+// use sp_consensus_aura::ed25519::AuthorityId;
 impl pallet_epoch::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
-    type AuthorityId = AccountId20;
+    type AuthorityId = AuraId; 
+    type ValidatorId = ValidatorId;
+    
+   
 }
 
 parameter_types! {
@@ -346,8 +380,9 @@ parameter_types! {
 
 impl pallet_session::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type ValidatorId = AccountId20;
+  
     type ValidatorIdOf = substrate_validator_set::ValidatorOf<Self>;
+    type ValidatorId = <Self as frame_system::Config>::AccountId;
     type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
     type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
     type SessionManager = ValidatorSet;
