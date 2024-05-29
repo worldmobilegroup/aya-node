@@ -152,11 +152,10 @@ pub trait Config:
     type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
     type WeightInfo: WeightInfo;
     
-    type AuthorityId: AppPublic + From<sp_core::sr25519::Public>; // Correct AppPublic usage
+    type AuthorityId: AppPublic + From<sp_core::sr25519::Public>; 
     type ValidatorId: From<Self::AccountId> + Into<AccountId32>;
-    
-    
-    
+    type AccountId32Convert: From<AccountId32> + Into<Self::AccountId>;
+
 }
 
 
@@ -189,14 +188,16 @@ pub trait Config:
         }
     }
 
+
+
+    
     impl<T: Config> Pallet<T>
     
     where
+    <T as Config>::ValidatorId: From<T::AccountId> + Into<AccountId32>,
     T::AuthorityId: AppCrypto,
-    // T::AccountId: From<AccountId32> + IdentifyAccount<AccountId = T::AccountId>,
-    // T::ValidatorId: From<T::AccountId>,
-    // AccountId32: From<T::ValidatorId>,
-    
+    // T::AccountId: From<AccountId32>,
+   
     
     {
         // Step 5: Message Cleanup
@@ -218,26 +219,26 @@ pub trait Config:
 
         
         fn is_leader() -> bool {
-            // let validators = validator_set::Validators::<T>::get();
-            // let current_index = pallet_session::Pallet::<T>::current_index();
-            
-            // if let Some(leader) = validators.get(current_index as usize % validators.len()) {
-            //     let leader_account_id = leader.clone(); // Use the leader directly as AccountId
-            //     let local_keys = Self::fetch_local_keys();
-                
-            //     for local_key in local_keys {
-            //         // Convert the local key to a MultiSigner
-            //         let multi_signer = MultiSigner::from(local_key.into());
-                    
-            //         // Convert the MultiSigner to an AccountId
-            //         let local_key_account_id: T::AccountId = multi_signer.into_account();
-                    
-            //         // Check if the local key account ID matches the leader's account ID
-            //         if local_key_account_id == leader_account_id {
-            //             return true;
-            //         }
-            //     }
-            // }
+            let validators = validator_set::Validators::<T>::get();
+            let current_index = pallet_session::Pallet::<T>::current_index();
+    
+            if let Some(leader) = validators.get(current_index as usize % validators.len()) {
+                let leader_account_id = leader.clone(); // Use the leader directly as AccountId
+                let local_keys = Self::fetch_local_keys();
+    
+                // for local_key in local_keys {
+                //     // Convert the local key to a MultiSigner
+                //     let multi_signer = MultiSigner::from(local_key.into());
+    
+                //     // Convert the MultiSigner to an AccountId
+                //     let local_key_account_id: T::AccountId = multi_signer.into_account();
+    
+                //     // Check if the local key account ID matches the leader's account ID
+                //     if local_key_account_id == leader_account_id {
+                //         return true;
+                //     }
+                // }
+            }
             false
         }
     

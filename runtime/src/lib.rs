@@ -73,8 +73,12 @@ use pallet_evm::{
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
 use sp_core::crypto::AccountId32;
+use sp_runtime::MultiSigner;
+mod account_id_conversion;
+
+use account_id_conversion::AccountId32Wrapper;
 use fp_account::AccountId20;
-// A few exports that help ease life for downstream crates.
+
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
@@ -363,14 +367,15 @@ impl From<ValidatorId> for AccountId20 {
 
 
 
-// use sp_consensus_aura::ed25519::AuthorityId;
+
+
 impl pallet_epoch::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
     type AuthorityId = AuraId; 
+    // type ValidatorId = AccountId; 
     type ValidatorId = ValidatorId;
-    
-   
+    type AccountId32Convert = AccountId32Wrapper;
 }
 
 parameter_types! {
