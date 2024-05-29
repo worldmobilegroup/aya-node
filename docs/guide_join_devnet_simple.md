@@ -66,8 +66,8 @@ NOTE: `${USER}` is a global variable that returns your username.  You do not nee
 cd /home/${USER}
 mkdir -p aya-node/target/release
 cd aya-node
-wget https://github.com/worldmobilegroup/aya-node/releases/download/devnet-v.0.2.0/wm-devnet-chainspec.json
-wget -P target/release https://github.com/worldmobilegroup/aya-node/releases/download/devnet-v.0.2.0/aya-node
+wget https://github.com/worldmobilegroup/aya-node/releases/download/devnet-v0.3.0/wm-devnet-chainspec.json
+wget -P target/release https://github.com/worldmobilegroup/aya-node/releases/download/devnet-v0.3.0/aya-node
 chmod +x target/release/aya-node
 ```
 
