@@ -10,6 +10,8 @@ The function retrieves the list of validators from the validator_set pallet. Thi
 
 let validators = validator_set::Validators::<T>::get();
 
+```
+
 2. Get the Current Session Index
 
 The function gets the current session index from the pallet_session. The session index is a number that increments with each new session.
@@ -18,6 +20,8 @@ The function gets the current session index from the pallet_session. The session
 
 let current_index = pallet_session::Pallet::<T>::current_index();
 
+
+```
 3. Calculate the Leader
 
 The function determines which validator is the leader for the current session by using the modulus operation on the session index and the number of validators. This calculation ensures that each validator gets a turn to be the leader in a round-robin manner.
@@ -28,6 +32,8 @@ if let Some(session_leader) = validators.get(current_index as usize % validators
     // ...
 }
 
+
+```
 4. Convert ValidatorId to AuthorityId
 
 The function converts the ValidatorId of the calculated leader to an AuthorityId. The AuthorityId is used to match against the public keys that the node owns.
@@ -40,6 +46,7 @@ if let Ok(leader_authority_id) = Self::convert_validator_id_to_authority_id(lead
     // ...
 }
 
+```
 5. Fetch Local Keys
 
 The function retrieves the public keys that the current node owns. These keys are used to verify if the node is the leader.
@@ -48,6 +55,8 @@ The function retrieves the public keys that the current node owns. These keys ar
 
 let local_keys = Self::fetch_local_keys();
 
+
+```
 6. Check if the Node is the Leader
 
 The function compares the leader's AuthorityId with the local keys. If any of the local keys match the leader's AuthorityId, it means the current node is the leader.
@@ -60,6 +69,7 @@ for local_key in local_keys {
     }
 }
 
+```
 ## Summary
 
 ### In summary, a node is considered the leader if:
