@@ -1,8 +1,8 @@
-use sp_runtime::AccountId32;
-use sp_core::H160;
-use sp_runtime::codec::{Encode, Decode};
-use frame_system::Config as SysConfig;
 use fp_account::AccountId20;
+use frame_system::Config as SysConfig;
+use sp_core::H160;
+use sp_runtime::codec::{Decode, Encode};
+use sp_runtime::AccountId32;
 
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct AccountId32Wrapper(pub AccountId32);

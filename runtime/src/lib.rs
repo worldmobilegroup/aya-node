@@ -338,9 +338,6 @@ impl substrate_validator_set::Config for Runtime {
     type WeightInfo = ();
 }
 
-
-
-
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct ValidatorId(pub AccountId20);
 
@@ -365,15 +362,10 @@ impl From<ValidatorId> for AccountId20 {
     }
 }
 
-
-
-
-
 impl pallet_epoch::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
-    type AuthorityId = AuraId; 
-    // type ValidatorId = AccountId; 
+    type AuthorityId = AuraId;
     type ValidatorId = ValidatorId;
     type AccountId32Convert = AccountId32Wrapper;
 }
@@ -385,7 +377,7 @@ parameter_types! {
 
 impl pallet_session::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-  
+
     type ValidatorIdOf = substrate_validator_set::ValidatorOf<Self>;
     type ValidatorId = <Self as frame_system::Config>::AccountId;
     type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;

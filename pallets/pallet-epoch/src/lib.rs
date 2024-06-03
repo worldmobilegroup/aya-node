@@ -12,7 +12,6 @@ mod tests;
 mod benchmarking;
 pub mod weights;
 
-
 use frame_support::weights::Weight;
 use frame_support::{dispatch::DispatchResult, pallet_prelude::*, storage::types::StorageMap};
 use frame_system::{offchain::*, pallet_prelude::*};
@@ -42,30 +41,25 @@ use sp_runtime::{
 };
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
-use  substrate_validator_set as validator_set;
+use substrate_validator_set as validator_set;
 
 use pallet_session;
 
-use sp_runtime::app_crypto::AppPublic;
+use scale_info::TypeInfo;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::crypto::KeyTypeId;
-use scale_info::TypeInfo;
+use sp_runtime::app_crypto::AppPublic;
 
-
-
-
-
-use sp_std::vec::Vec;  
-use frame_support::pallet_prelude::{BoundedVec, MaxEncodedLen, Get};
 use alloc::string::String;
+use frame_support::pallet_prelude::{BoundedVec, Get, MaxEncodedLen};
+use sp_std::vec::Vec;
 
 use sp_runtime::traits::AccountIdConversion;
 
 use sp_runtime::AccountId32;
 
-use sp_runtime::MultiSigner;
 use sp_runtime::traits::{IdentifyAccount, Verify};
-
+use sp_runtime::MultiSigner;
 
 // Define the type for the maximum length
 pub struct MaxDataLength;
@@ -76,11 +70,20 @@ impl Get<u32> for MaxDataLength {
     }
 }
 
-
-#[derive(Default, Deserialize, Serialize, Encode, Decode, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+#[derive(
+    Default,
+    Deserialize,
+    Serialize,
+    Encode,
+    Decode,
+    Clone,
+    PartialEq,
+    Eq,
+    TypeInfo,
+    MaxEncodedLen,
+    RuntimeDebug,
+)]
 pub struct CustomData(pub BoundedVec<u8, MaxDataLength>);
-
-
 
 impl CustomData {
     pub fn is_empty(&self) -> bool {
@@ -88,8 +91,19 @@ impl CustomData {
     }
 }
 
-
-#[derive(Default, Deserialize, Serialize, Encode, Decode, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+#[derive(
+    Default,
+    Deserialize,
+    Serialize,
+    Encode,
+    Decode,
+    Clone,
+    PartialEq,
+    Eq,
+    TypeInfo,
+    MaxEncodedLen,
+    RuntimeDebug,
+)]
 pub struct CustomEvent {
     pub id: u64,
     pub data: CustomData,
@@ -122,42 +136,51 @@ impl CustomEvent {
     ) -> Result<Self, &'static str> {
         Ok(CustomEvent {
             id,
-            data: CustomData(BoundedVec::try_from(data).map_err(|_| "Data exceeds maximum length")?),
+            data: CustomData(
+                BoundedVec::try_from(data).map_err(|_| "Data exceeds maximum length")?,
+            ),
             timestamp,
             block_height,
             last_epoch,
-            last_blockhash: BoundedVec::try_from(last_blockhash).map_err(|_| "Last blockhash exceeds maximum length")?,
+            last_blockhash: BoundedVec::try_from(last_blockhash)
+                .map_err(|_| "Last blockhash exceeds maximum length")?,
             last_slot,
             new_epoch,
             new_slot,
-            new_blockhash: BoundedVec::try_from(new_blockhash).map_err(|_| "New blockhash exceeds maximum length")?,
-            epoch_nonce: BoundedVec::try_from(epoch_nonce).map_err(|_| "Epoch nonce exceeds maximum length")?,
-            extra_entropy: extra_entropy.map(|e| BoundedVec::try_from(e).map_err(|_| "Extra entropy exceeds maximum length")).transpose()?,
+            new_blockhash: BoundedVec::try_from(new_blockhash)
+                .map_err(|_| "New blockhash exceeds maximum length")?,
+            epoch_nonce: BoundedVec::try_from(epoch_nonce)
+                .map_err(|_| "Epoch nonce exceeds maximum length")?,
+            extra_entropy: extra_entropy
+                .map(|e| {
+                    BoundedVec::try_from(e).map_err(|_| "Extra entropy exceeds maximum length")
+                })
+                .transpose()?,
         })
     }
 }
 
-
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-
+    use sp_core::ByteArray;
     #[pallet::config]
-pub trait Config:
-    frame_system::Config
-    + CreateSignedTransaction<Call<Self>>
-    + validator_set::Config
-    + pallet_session::Config 
-{
-    type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-    type WeightInfo: WeightInfo;
-    
-    type AuthorityId: AppPublic + From<sp_core::sr25519::Public>; 
-    type ValidatorId: From<Self::AccountId> + Into<AccountId32>;
-    type AccountId32Convert: From<AccountId32> + Into<Self::AccountId>;
+    pub trait Config:
+        frame_system::Config
+        + CreateSignedTransaction<Call<Self>>
+        + validator_set::Config
+        + pallet_session::Config
+    {
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+        type WeightInfo: WeightInfo;
 
-}
-
+        type AuthorityId: AppPublic + From<sp_core::sr25519::Public>;
+        type ValidatorId: Clone
+            + From<Self::AccountId>
+            + Into<AccountId32>
+            + From<<Self as pallet_session::Config>::ValidatorId>;
+        type AccountId32Convert: From<AccountId32> + Into<Self::AccountId>;
+    }
 
     #[pallet::pallet]
     #[pallet::without_storage_info]
@@ -169,9 +192,7 @@ pub trait Config:
         StorageMap<_, Blake2_128Concat, u64, CustomEvent, ValueQuery>;
 
     #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> 
-    
-    {
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn offchain_worker(block_number: BlockNumberFor<T>) {
             // Step 3: Message Processing
             if let Err(e) = Self::fetch_and_process_events_from_queue() {
@@ -187,18 +208,25 @@ pub trait Config:
             }
         }
     }
-
-
-
-    
     impl<T: Config> Pallet<T>
-    
     where
-    <T as Config>::ValidatorId: From<T::AccountId> + Into<AccountId32>,
-    T::AuthorityId: AppCrypto,
-    // T::AccountId: From<AccountId32>,
-   
-    
+        <T as pallet::Config>::ValidatorId:
+            Clone + Into<AccountId32> + From<<T as pallet_session::Config>::ValidatorId>,
+        <T as pallet_session::Config>::ValidatorId: Clone,
+    {
+        fn convert_session_validator_id_to_pallet_validator_id(
+            key: <T as pallet_session::Config>::ValidatorId,
+        ) -> <T as pallet::Config>::ValidatorId {
+            key.into()
+        }
+    }
+
+    impl<T: Config> Pallet<T>
+    where
+        <T as pallet::Config>::ValidatorId:
+            Clone + Into<AccountId32> + From<<T as pallet_session::Config>::ValidatorId>,
+        <T as pallet_session::Config>::ValidatorId: Clone,
+        T::AuthorityId: AppCrypto + From<sp_core::sr25519::Public>,
     {
         // Step 5: Message Cleanup
         fn cleanup_processed_events() {
@@ -214,34 +242,55 @@ pub trait Config:
                 .into_iter()
                 .map(|key| T::AuthorityId::from(key))
                 .collect()
-            
+        }
+        // Function to convert ValidatorId to AuthorityId
+        fn convert_validator_id_to_authority_id(
+            key: <T as pallet::Config>::ValidatorId,
+        ) -> Result<T::AuthorityId, &'static str> {
+            // Convert ValidatorId to AccountId32
+            let account_id32: AccountId32 = key.into();
+
+            // Retrieve the public keys and find the matching one
+            let public_key = sp_io::crypto::sr25519_public_keys(T::AuthorityId::ID)
+                .into_iter()
+                .find(|pk| AccountId32::from(*pk) == account_id32)
+                .ok_or("Failed to find AuthorityId for the given ValidatorId")?;
+
+            // Convert the public key to AuthorityId
+            Ok(T::AuthorityId::from(public_key))
         }
 
-        
+        // Function to convert AuthorityId to AccountId32
+        fn convert_to_account_id32(key: T::AuthorityId) -> AccountId32 {
+            let public_key = key.to_raw_vec();
+            AccountId32::from_slice(&public_key)
+                .expect("Failed to convert AuthorityId to AccountId32")
+        }
+
         fn is_leader() -> bool {
+            // Fetch the current set of validators
             let validators = validator_set::Validators::<T>::get();
+            // Get the current session index
             let current_index = pallet_session::Pallet::<T>::current_index();
-    
-            if let Some(leader) = validators.get(current_index as usize % validators.len()) {
-                let leader_account_id = leader.clone(); // Use the leader directly as AccountId
-                let local_keys = Self::fetch_local_keys();
-    
-                // for local_key in local_keys {
-                //     // Convert the local key to a MultiSigner
-                //     let multi_signer = MultiSigner::from(local_key.into());
-    
-                //     // Convert the MultiSigner to an AccountId
-                //     let local_key_account_id: T::AccountId = multi_signer.into_account();
-    
-                //     // Check if the local key account ID matches the leader's account ID
-                //     if local_key_account_id == leader_account_id {
-                //         return true;
-                //     }
-                // }
+
+            if let Some(session_leader) = validators.get(current_index as usize % validators.len())
+            {
+                // // Convert session's ValidatorId to pallet's ValidatorId
+                let leader = Self::convert_session_validator_id_to_pallet_validator_id(session_leader.clone());
+
+                // // Convert leader to AuthorityId
+                if let Ok(leader_authority_id) = Self::convert_validator_id_to_authority_id(leader) {
+                    let local_keys = Self::fetch_local_keys();
+
+                    for local_key in local_keys {
+                        if local_key == leader_authority_id {
+                            return true;
+                        }
+                    }
+                }
             }
             false
         }
-    
 
         fn fetch_all_events() -> Result<Vec<u8>, Error<T>> {
             const HTTP_REMOTE_REQUEST: &str = "http://127.0.0.1:5555";
@@ -302,8 +351,6 @@ pub trait Config:
             Ok(body)
         }
 
-       
-
         fn fetch_remote_events() -> Vec<CustomEvent> {
             // Implement the logic to fetch remote events from other nodes.
             // This might involve sending HTTP requests to other nodes and parsing the responses.
@@ -334,14 +381,14 @@ pub trait Config:
             if event.timestamp == 0 || event.block_height == 0 {
                 return Err(Error::<T>::InvalidEventData);
             }
-    
+
             if event.data.0.is_empty() {
                 return Err(Error::<T>::InvalidEventData);
             }
-    
+
             // Process the event (e.g., store in mempool)
             Self::store_event_in_mempool(event).map_err(|_| Error::<T>::StorageOverflow)?;
-    
+
             Ok(())
         }
 
@@ -356,11 +403,11 @@ pub trait Config:
             let response = Self::fetch_all_events()?;
             let events: Vec<(CustomEvent, i32)> =
                 serde_json::from_slice(&response).map_err(|_| <Error<T>>::HttpFetchingError)?;
-    
+
             for (event, _priority) in events {
                 Self::validate_and_process_event(event)?;
             }
-    
+
             Ok(())
         }
 
@@ -373,33 +420,16 @@ pub trait Config:
             for (event_id, event) in EventStorage::<T>::iter() {
                 events.push(event);
             }
-    
+
             let call = Call::<T>::submit_inclusion_transaction { events };
-    
+
             // // Submit the transaction
             // T::SubmitTransaction::submit_unsigned_transaction(call.into())
-            //     .map_err(|_| "Failed to submit transaction")?;
-    
-            Ok(())
-
-           
-        }
-
-        fn synchronize_events_with_peers() -> Result<(), Error<T>> {
-            // let event_ids: Vec<u64> = EventStorage::<T>::iter_keys().collect();
-
-            // for event_id in event_ids {
-            //     if let Some(event) = Self::get_event(event_id) {
-            //         if !Self::validate_and_process_event(event.clone()).is_ok() {
-            //             // Request the event from other workers
-            //             let missing_event = Self::request_event_from_peers(event_id)?;
-            //             Self::validate_and_process_event(missing_event)?;
-            //         }
-            //     }
-            // }
+                // .map_err(|_| "Failed to submit transaction")?;
 
             Ok(())
         }
+
 
         fn request_event_from_peers(event_id: u64) -> Result<CustomEvent, Error<T>> {
             let url = Self::construct_url(&format!("/api/events/{}", event_id));
@@ -540,8 +570,6 @@ pub trait Config:
             // save to local storage queue
             Ok(())
         }
-
-      
     }
 
     use scale_info::prelude::string::String;
@@ -596,7 +624,7 @@ pub trait Config:
             // Ensure the call is unsigned to allow offchain workers to submit
             let _who = ensure_none(origin)?;
             // Verify event sequence and order with committee
-            
+
             // Logic to handle the inclusion of events in the transaction
             // Validate events, ensure proper ordering, etc.
 
