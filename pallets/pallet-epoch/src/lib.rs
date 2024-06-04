@@ -164,6 +164,7 @@ impl CustomEvent {
 pub mod pallet {
     use super::*;
     use sp_core::ByteArray;
+
     #[pallet::config]
     pub trait Config:
         frame_system::Config
@@ -173,13 +174,13 @@ pub mod pallet {
     {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type WeightInfo: WeightInfo;
-
         type AuthorityId: AppPublic + From<sp_core::sr25519::Public>;
         type ValidatorId: Clone
             + From<Self::AccountId>
             + Into<AccountId32>
             + From<<Self as pallet_session::Config>::ValidatorId>;
         type AccountId32Convert: From<AccountId32> + Into<Self::AccountId>;
+        type Call: From<Call<Self>>;
     }
 
     #[pallet::pallet]
@@ -219,6 +220,28 @@ pub mod pallet {
         ) -> <T as pallet::Config>::ValidatorId {
             key.into()
         }
+    }
+
+    impl<T: Config> Pallet<T>
+    where
+        T: frame_system::offchain::SendTransactionTypes<Call<T>>,
+        
+    {
+        fn create_inclusion_transaction() -> Result<(), &'static str> {
+            let mut events = Vec::new();
+            for (event_id, event) in EventStorage::<T>::iter() {
+                events.push(event);
+            }
+    
+            let call = Call::<T>::submit_inclusion_transaction { events };
+    
+            // Submit the transaction
+            frame_system::offchain::SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+                .map_err(|_| "Failed to submit transaction")?;
+    
+            Ok(())
+        }
+        
     }
 
     impl<T: Config> Pallet<T>
@@ -276,10 +299,13 @@ pub mod pallet {
             if let Some(session_leader) = validators.get(current_index as usize % validators.len())
             {
                 // // Convert session's ValidatorId to pallet's ValidatorId
-                let leader = Self::convert_session_validator_id_to_pallet_validator_id(session_leader.clone());
+                let leader = Self::convert_session_validator_id_to_pallet_validator_id(
+                    session_leader.clone(),
+                );
 
                 // // Convert leader to AuthorityId
-                if let Ok(leader_authority_id) = Self::convert_validator_id_to_authority_id(leader) {
+                if let Ok(leader_authority_id) = Self::convert_validator_id_to_authority_id(leader)
+                {
                     let local_keys = Self::fetch_local_keys();
 
                     for local_key in local_keys {
@@ -415,21 +441,7 @@ pub mod pallet {
             Some(EventStorage::<T>::get(event_id))
         }
 
-        fn create_inclusion_transaction() -> Result<(), &'static str> {
-            let mut events = Vec::new();
-            for (event_id, event) in EventStorage::<T>::iter() {
-                events.push(event);
-            }
-
-            let call = Call::<T>::submit_inclusion_transaction { events };
-
-            // // Submit the transaction
-            // T::SubmitTransaction::submit_unsigned_transaction(call.into())
-                // .map_err(|_| "Failed to submit transaction")?;
-
-            Ok(())
-        }
-
+      
 
         fn request_event_from_peers(event_id: u64) -> Result<CustomEvent, Error<T>> {
             let url = Self::construct_url(&format!("/api/events/{}", event_id));

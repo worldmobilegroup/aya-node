@@ -368,6 +368,7 @@ impl pallet_epoch::Config for Runtime {
     type AuthorityId = AuraId;
     type ValidatorId = ValidatorId;
     type AccountId32Convert = AccountId32Wrapper;
+    type Call = RuntimeCall;
 }
 
 parameter_types! {
@@ -443,6 +444,8 @@ impl frame_system::offchain::SigningTypes for Runtime {
     type Public = <Signature as Verify>::Signer;
     type Signature = Signature;
 }
+
+
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
 where
