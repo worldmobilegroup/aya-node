@@ -1,11 +1,15 @@
 //! The Substrate Node Template runtime. This can be compiled with `#[no_std]`, ready for Wasm.
-
 #![cfg_attr(not(feature = "std"), no_std)]
-// `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
-#![recursion_limit = "256"]
-#![allow(clippy::new_without_default, clippy::or_fun_call)]
-#![cfg_attr(feature = "runtime-benchmarks", warn(unused_crate_dependencies))]
+#![recursion_limit = "512"]
+#![feature(trivial_bounds)]
+use frame_support::parameter_types;
+use frame_support::storage::{StorageAppend, StorageMap};
+use scale_codec::EncodeLike;
+use sp_runtime::traits::Saturating;
 
+use frame_support::StorageValue;
+#[allow(clippy::new_without_default, clippy::or_fun_call)]
+#[cfg_attr(feature = "runtime-benchmarks", warn(unused_crate_dependencies))]
 // Make the WASM binary available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
@@ -47,7 +51,6 @@ use frame_support::{
     dynamic_params::dynamic_params,
     genesis_builder_helper::{build_config, create_default_config},
     pallet_prelude::DispatchClass,
-    parameter_types,
     traits::{
         AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU8, EnsureOriginWithArg,
         FindAuthor, Nothing, OnFinalize, OnTimestampSet,
@@ -73,7 +76,7 @@ use pallet_evm::{
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
 use sp_core::crypto::AccountId32;
-use sp_runtime::MultiSigner;
+
 mod account_id_conversion;
 
 use account_id_conversion::AccountId32Wrapper;
@@ -85,6 +88,9 @@ pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::Multiplier;
 
 pub use pallet_epoch;
+
+use frame_system::offchain::AppCrypto;
+use sp_application_crypto::sr25519;
 
 mod precompiles;
 
@@ -196,6 +202,40 @@ pub const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
     u64::MAX,
 );
 pub const MAXIMUM_BLOCK_LENGTH: u32 = 5 * 1024 * 1024;
+
+use frame_support::pallet_prelude::{MaxEncodedLen, TypeInfo};
+use sp_runtime::serde::{Deserialize, Serialize};
+use sp_runtime::RuntimeDebug;
+
+// Define the key type identifier
+pub const MY_KEY_TYPE: KeyTypeId = KeyTypeId(*b"myk!");
+use frame_system::offchain::SigningTypes;
+
+
+
+
+#[derive(
+    Clone,
+    PartialEq,
+    Eq,
+    Encode,
+    Decode,
+    MaxEncodedLen,
+    TypeInfo,
+    Serialize,
+    Deserialize,
+    RuntimeDebug,
+)]
+pub struct MyCrypto;
+
+impl frame_system::offchain::AppCrypto<sr25519::Public, sr25519::Signature> for MyCrypto {
+    type RuntimeAppPublic = sr25519::AppPublic;
+    type GenericPublic = sr25519::Public;
+    type GenericSignature = sr25519::Signature;
+}
+use frame_system::Config as FrameSystemConfig;
+
+pub type MySigner<T> = frame_system::offchain::Signer<T, <T as pallet_aura::Config>::AuthorityId>;
 
 parameter_types! {
     pub const Version: RuntimeVersion = VERSION;
@@ -309,20 +349,124 @@ parameter_types! {
     pub storage EnableManualSeal: bool = false;
 }
 
-pub struct ConsensusOnTimestampSet<T>(PhantomData<T>);
-impl<T: pallet_aura::Config> OnTimestampSet<T::Moment> for ConsensusOnTimestampSet<T> {
-    fn on_timestamp_set(moment: T::Moment) {
-        if EnableManualSeal::get() {
-            return;
+use frame_support::storage::unhashed;
+use sp_io;
+
+impl StorageValue<bool> for EnableManualSeal {
+    type Query = bool;
+
+    fn hashed_key() -> [u8; 32] {
+        // Implement as needed
+        [0u8; 32]
+    }
+
+    fn exists() -> bool {
+        // Implement as needed
+        false
+    }
+
+    fn get() -> Self::Query {
+        false // Default value or implement as needed
+    }
+
+    fn try_get() -> Result<bool, ()> {
+        Ok(Self::get())
+    }
+
+    fn translate<O: Decode, F: FnOnce(Option<O>) -> Option<bool>>(
+        f: F,
+    ) -> Result<Option<bool>, ()> {
+        let key = Self::hashed_key();
+        let maybe_old = unhashed::get_raw(&key)
+            .map(|old_data| O::decode(&mut &old_data[..]).map_err(|_| ()))
+            .transpose()?;
+        let maybe_new = f(maybe_old);
+        if let Some(new) = maybe_new.as_ref() {
+            new.using_encoded(|d| unhashed::put_raw(&key, d));
+        } else {
+            unhashed::kill(&key);
         }
-        <pallet_aura::Pallet<T> as OnTimestampSet<T::Moment>>::on_timestamp_set(moment)
+        Ok(maybe_new)
+    }
+
+    fn put<Arg: EncodeLike<bool>>(value: Arg) {
+        unhashed::put(&Self::hashed_key(), &value)
+    }
+
+    fn set(value: bool) {
+        Self::put(value);
+    }
+
+    fn kill() {
+        unhashed::kill(&Self::hashed_key())
+    }
+
+    fn take() -> Self::Query {
+        let key = Self::hashed_key();
+        let value = unhashed::get(&key);
+        if value.is_some() {
+            unhashed::kill(&key)
+        }
+        value.unwrap_or(false)
+    }
+
+    fn mutate<R, F: FnOnce(&mut bool) -> R>(f: F) -> R {
+        let mut value = Self::get();
+        let res = f(&mut value);
+        Self::put(value);
+        res
+    }
+
+    fn try_mutate<R, E, F: FnOnce(&mut bool) -> Result<R, E>>(f: F) -> Result<R, E> {
+        let mut value = Self::get();
+        let res = f(&mut value)?;
+        Self::put(value);
+        Ok(res)
+    }
+
+    fn mutate_exists<R, F: FnOnce(&mut Option<bool>) -> R>(f: F) -> R {
+        let mut value = Some(Self::get());
+        let res = f(&mut value);
+        if let Some(val) = value {
+            Self::put(val)
+        } else {
+            Self::kill()
+        }
+        res
+    }
+
+    fn try_mutate_exists<R, E, F: FnOnce(&mut Option<bool>) -> Result<R, E>>(f: F) -> Result<R, E> {
+        let mut value = Some(Self::get());
+        let res = f(&mut value)?;
+        if let Some(val) = value {
+            Self::put(val)
+        } else {
+            Self::kill()
+        }
+        Ok(res)
+    }
+
+    fn append<Item, EncodeLikeItem>(item: EncodeLikeItem)
+    where
+        Item: Encode,
+        EncodeLikeItem: EncodeLike<Item>,
+        bool: StorageAppend<Item>,
+    {
+        let key = Self::hashed_key();
+        sp_io::storage::append(&key, item.encode());
+    }
+}
+
+impl EnableManualSeal {
+    fn from_query_to_optional_value(value: bool) -> Option<bool> {
+        Some(value)
     }
 }
 
 impl pallet_timestamp::Config for Runtime {
     /// A timestamp: milliseconds since the unix epoch.
     type Moment = u64;
-    type OnTimestampSet = ConsensusOnTimestampSet<Self>;
+    type OnTimestampSet = (); //ConsensusOnTimestampSet<Self>;
     type MinimumPeriod = MinimumPeriod;
     type WeightInfo = ();
 }
@@ -365,7 +509,7 @@ impl From<ValidatorId> for AccountId20 {
 impl pallet_epoch::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
-    type AuthorityId = AuraId;
+    type AuthorityId = sp_consensus_aura::sr25519::AuthorityId;
     type ValidatorId = ValidatorId;
     type AccountId32Convert = AccountId32Wrapper;
     type Call = RuntimeCall;
@@ -444,8 +588,6 @@ impl frame_system::offchain::SigningTypes for Runtime {
     type Public = <Signature as Verify>::Signer;
     type Signature = Signature;
 }
-
-
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
 where
@@ -695,6 +837,9 @@ impl pallet_evm::Config for Runtime {
 
 parameter_types! {
     pub const PostBlockAndTxnHashes: PostLogContent = PostLogContent::BlockAndTxnHashes;
+    pub BoundDivision: U256 = U256::from(1024);
+    pub DefaultBaseFeePerGas: U256 = U256::from(1_000_000_000);
+    pub DefaultElasticity: Permill = Permill::from_parts(125_000);
 }
 
 impl pallet_ethereum::Config for Runtime {
@@ -704,17 +849,8 @@ impl pallet_ethereum::Config for Runtime {
     type ExtraDataLength = ConstU32<30>;
 }
 
-parameter_types! {
-    pub BoundDivision: U256 = U256::from(1024);
-}
-
 impl pallet_dynamic_fee::Config for Runtime {
     type MinGasPriceBoundDivisor = BoundDivision;
-}
-
-parameter_types! {
-    pub DefaultBaseFeePerGas: U256 = U256::from(1_000_000_000);
-    pub DefaultElasticity: Permill = Permill::from_parts(125_000);
 }
 
 pub struct BaseFeeThreshold;

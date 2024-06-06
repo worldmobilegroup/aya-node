@@ -609,9 +609,9 @@ dependencies = [
 
 [[package]]
 name = "async-compression"
-version = "0.4.10"
+version = "0.4.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c90a406b4495d129f00461241616194cb8a032c8d1c53c657f0961d5f8e0498"
+checksum = "cd066d0b4ef8ecb03a55319dc13aa6910616d0f44008a045bb1835af830abff5"
 dependencies = [
  "brotli",
  "flate2",
@@ -843,6 +843,7 @@ dependencies = [
  "pallet-uniques",
  "parity-scale-codec",
  "scale-info",
+ "serde",
  "sp-api",
  "sp-application-crypto",
  "sp-block-builder",
@@ -851,6 +852,7 @@ dependencies = [
  "sp-core",
  "sp-genesis-builder",
  "sp-inherents",
+ "sp-io",
  "sp-offchain",
  "sp-runtime",
  "sp-session",
@@ -860,6 +862,13 @@ dependencies = [
  "static_assertions",
  "substrate-validator-set",
  "substrate-wasm-builder",
+]
+
+[[package]]
+name = "aya-traits"
+version = "0.1.0"
+dependencies = [
+ "frame-system",
 ]
 
 [[package]]
@@ -1108,9 +1117,9 @@ dependencies = [
 
 [[package]]
 name = "brotli-decompressor"
-version = "4.0.0"
+version = "4.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6221fe77a248b9117d431ad93761222e1cf8ff282d9d1d5d9f53d6299a1cf76"
+checksum = "9a45bd2e4095a8b518033b128020dd4a55aab1c0a381ba4404a472630f4bc362"
 dependencies = [
  "alloc-no-stdlib",
  "alloc-stdlib",
@@ -6001,6 +6010,7 @@ dependencies = [
 name = "pallet-epoch"
 version = "1.1.0"
 dependencies = [
+ "aya-traits",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -6948,9 +6958,9 @@ dependencies = [
 
 [[package]]
 name = "priority-queue"
-version = "2.0.2"
+version = "2.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "509354d8a769e8d0b567d6821b84495c60213162761a732d68ce87c964bd347f"
+checksum = "70c501afe3a2e25c9bd219aa56ec1e04cdb3fcdd763055be268778c13fa82c1f"
 dependencies = [
  "autocfg",
  "equivalent",

@@ -1,0 +1,10 @@
+[package]
+name = "aya-traits"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+
+[dependencies]
+frame-system = { workspace = true }
+

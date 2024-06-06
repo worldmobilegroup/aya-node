@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![feature(trivial_bounds)]
 extern crate alloc;
 #[cfg_attr(feature = "std", macro_use)]
 extern crate serde;
@@ -60,9 +61,11 @@ use sp_runtime::AccountId32;
 
 use sp_runtime::traits::{IdentifyAccount, Verify};
 use sp_runtime::MultiSigner;
-
+use aya_traits::OffchainBound;
 // Define the type for the maximum length
 pub struct MaxDataLength;
+
+
 
 impl Get<u32> for MaxDataLength {
     fn get() -> u32 {
@@ -160,10 +163,15 @@ impl CustomEvent {
     }
 }
 
+
+
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
     use sp_core::ByteArray;
+
+    
 
     #[pallet::config]
     pub trait Config:
@@ -174,7 +182,9 @@ pub mod pallet {
     {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type WeightInfo: WeightInfo;
-        type AuthorityId: AppPublic + From<sp_core::sr25519::Public>;
+
+        type AuthorityId: AppPublic + From<sp_core::sr25519::Public> + AppCrypto;
+
         type ValidatorId: Clone
             + From<Self::AccountId>
             + Into<AccountId32>
@@ -193,7 +203,17 @@ pub mod pallet {
         StorageMap<_, Blake2_128Concat, u64, CustomEvent, ValueQuery>;
 
     #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
+        where
+            T: frame_system::offchain::SendTransactionTypes<Call<T>>,
+        //     T::AuthorityId: frame_system::offchain::AppCrypto<
+        //     <T as frame_system::offchain::SigningTypes>::Public,
+        //     <T as frame_system::offchain::SigningTypes>::Signature,
+        // >,
+
+
+    
+    {
         fn offchain_worker(block_number: BlockNumberFor<T>) {
             // Step 3: Message Processing
             if let Err(e) = Self::fetch_and_process_events_from_queue() {
@@ -203,9 +223,9 @@ pub mod pallet {
             // Check if the validator is the leader
             if Self::is_leader() {
                 // Create and submit an inclusion transaction
-                if let Err(e) = Self::create_inclusion_transaction() {
-                    log::error!("Error creating inclusion transaction: {:?}", e);
-                }
+                // if let Err(e) = Self::create_inclusion_transaction() {
+                //     log::error!("Error creating inclusion transaction: {:?}", e);
+                // }
             }
         }
     }
@@ -225,23 +245,26 @@ pub mod pallet {
     impl<T: Config> Pallet<T>
     where
         T: frame_system::offchain::SendTransactionTypes<Call<T>>,
-        
+        T::AuthorityId: frame_system::offchain::AppCrypto<
+            <T as frame_system::offchain::SigningTypes>::Public,
+            <T as frame_system::offchain::SigningTypes>::Signature,
+        >,
     {
         fn create_inclusion_transaction() -> Result<(), &'static str> {
-            let mut events = Vec::new();
+            let mut events: sp_application_crypto::Vec<CustomEvent> = Vec::new();
             for (event_id, event) in EventStorage::<T>::iter() {
                 events.push(event);
             }
-    
+
             let call = Call::<T>::submit_inclusion_transaction { events };
-    
-            // Submit the transaction
-            frame_system::offchain::SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
-                .map_err(|_| "Failed to submit transaction")?;
-    
-            Ok(())
+
+            //     // Retrieve the local account to sign the transaction
+            let signer = frame_system::offchain::Signer::<T, T::AuthorityId>::any_account();
+            if let Some((_, res)) = signer.send_signed_transaction(|_acct| call.clone()) {
+                return res.map_err(|_| "Failed to send signed transaction");
+            }
+            Err("No local account available")
         }
-        
     }
 
     impl<T: Config> Pallet<T>
@@ -440,8 +463,6 @@ pub mod pallet {
         fn get_event(event_id: u64) -> Option<CustomEvent> {
             Some(EventStorage::<T>::get(event_id))
         }
-
-      
 
         fn request_event_from_peers(event_id: u64) -> Result<CustomEvent, Error<T>> {
             let url = Self::construct_url(&format!("/api/events/{}", event_id));
@@ -656,6 +677,7 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
+        InclusionTransactionSubmitted { who: T::AccountId, event_count: u32 },
         DataFetchedSuccessfully,
     }
 

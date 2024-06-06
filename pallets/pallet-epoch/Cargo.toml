@@ -23,11 +23,12 @@ scale-codec = { workspace = true }
 sp-consensus-aura = { workspace = true }
 sp-std = {workspace = true}
 serde = { workspace = true }
+
 serde_json = { workspace = true }
 pallet-session = { workspace = true }
 sp-application-crypto = { workspace = true }
 substrate-validator-set = { workspace = true }
-
+aya-traits = { path = "../../aya-traits" }
 
 [dev-dependencies]
 
