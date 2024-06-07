@@ -6,43 +6,40 @@ Ricks Guides: https://github.com/ricksteruk/aya_devnet_guide/tree/main
 
 Welcome, lets start!
 
-## 1. Minimal Server Requirnments
+## 1. Minimal Server Requirements
 
-Operating System: Ubuntu 22.04
+**Operating System**: Ubuntu 22.04  
+**CPU**: 2x vCPU  
+**Memory**: 8 GB  
+**Storage**: ~250 GB
 
-CPU: 2x vCPU
+## 2. Update your Operating System
 
-Memory: 8 GB
+```bash
+sudo apt update && sudo apt upgrade
+```
 
-Storage: ~250 GB
+## 3. Install AyA 
 
-## 2. Set up Operating System
+### 3.1 From sources
 
-Login to your server and access the terminal, for example using SSH connection. 
+#### 3.1.1 Setup Rust
 
 Install dependencies: 
 
 ```bash
-sudo apt update && sudo apt upgrade
-sudo apt install -y curl 
+sudo apt install -y curl git clang libssl-dev llvm libudev-dev make protobuf-compiler pkg-config build-essential
 ```
-
-Optional dependencies, only needed when building from source:
-
-```bash
-sudo apt install -y git clang libssl-dev llvm libudev-dev make protobuf-compiler pkg-config build-essential
-```
-
-## 3. Set up Build Environment
 
 Install Rust: 
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
-Proceed with option 1 "Standard Installation" in the prompt, just hit enter. 
+Proceed with option 1 _"Standard Installation"_ when installing. 
 
-Get Rust enviornment into terminal session:
+Get Rust environment into terminal session:
+
 ```bash
 source $HOME/.cargo/env
 ```
@@ -60,21 +57,14 @@ rustup target add wasm32-unknown-unknown
 rustup update
 ```
 
-Configure Rust Nighly (Nighly is needed to build subkey, it can be skipped if you don't want to compile subkey but subkey is expected if you want to use the scripts in the utils folder of the aya-node repository.)
-```bash
-rustup update nightly
-rustup target add wasm32-unknown-unknown --toolchain nightly
-```
-
 Check Rust Installation:
 ```bash
 rustup show
-rustup +nightly show
 ```
 
-### 3.1 Build AyA-Node from Source Code
+#### 3.1.2 Build AyA-Node
 
-We recommend to compile the aya-node not on a small virtual machine as this can take quite some time. Instead build the aya-node on your local machine and copy the binary to the server. 
+Building the binary can take a long time depending on the resources of the server. 
 
 Clone the AyA-Node Repository:
 ```bash
@@ -84,7 +74,7 @@ cd aya-node
 
 For DevNet we checkout the devnet version of the aya-node and create a new local branch: 
 ```bash
-git checkout tags/devnet-v.0.2.0 -b my-devnet-branch
+git checkout tags/devnet-v0.3.0 -b my-devnet-branch
 ```
 
 Compile the AyA-Node:
@@ -92,29 +82,22 @@ Compile the AyA-Node:
 cargo build --release
 ```
 
-***Additional Information***
-
-If you want to update your local github repository and work with another branch you can do that for example:
-
-```bash
-git checkout main
-git pull origin main
-```
-
-If you want to merge the changes of another branch into your local branch, for example `main` into your `my-devnet-branch`, you can do that with: 
-```bash
-git checkout my-devnet-branch
-git merge main
-```
-For more information on git see: [A beginner's guide to Git version control](https://developers.redhat.com/articles/2023/08/02/beginners-guide-git-version-control#)
-
-### 3.2 Use Precompiled Binaries
+### 3.2 Precompiled Binaries
 
 If you do not want to build the aya-node from source, you can use the precompiled binaries: 
 
 [Release DevNet AyA Node v0.3.0](https://github.com/worldmobilegroup/aya-node/releases/tag/devnet-v0.3.0)
 
-Download and copy the `aya-node` and `wm-devnet-chainspec.json` files to your server. The guide assumes you built from source so make sure you adjust file paths. To get the same folder structure as for the build from source option, create the folder `aya-node/target/release` and copy the `aya-node` binary into it. The `wm-devnet-chainspec.json` would be expected in the folder `aya-node/`.
+Download and copy the `aya-node` and `wm-devnet-chainspec.json` files to your server. 
+
+The guide assumes you built from source so make sure you adjust file paths. To get the same folder structure as for the build from source option, create the folder `aya-node/target/release` and copy the `aya-node` binary into it. The `wm-devnet-chainspec.json` would be expected in the folder `aya-node/`.
+
+    .
+    └── aya-node
+        ├── target
+        │  └── release
+        │      └── aya-node
+        └── wm-devnet-chainspec.json
 
 ## 4. Setting Up systemd
 We want that our validator starts automatically with the server and is restarted automatically. For that purpose we create a systemd service (Ubuntu 22.04).
