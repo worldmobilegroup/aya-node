@@ -193,6 +193,10 @@ pub mod pallet {
         type Call: From<Call<Self>>;
     }
 
+
+
+    
+
     #[pallet::pallet]
     #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
@@ -206,11 +210,7 @@ pub mod pallet {
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
         where
             T: frame_system::offchain::SendTransactionTypes<Call<T>>,
-        //     T::AuthorityId: frame_system::offchain::AppCrypto<
-        //     <T as frame_system::offchain::SigningTypes>::Public,
-        //     <T as frame_system::offchain::SigningTypes>::Signature,
-        // >,
-
+    
 
     
     {

@@ -90,7 +90,7 @@ use pallet_transaction_payment::Multiplier;
 pub use pallet_epoch;
 
 use frame_system::offchain::AppCrypto;
-use sp_application_crypto::sr25519;
+
 
 mod precompiles;
 
@@ -98,6 +98,27 @@ mod precompiles;
 pub mod assets_api;
 
 use precompiles::FrontierPrecompiles;
+/// An Aura authority signature using S/R 25519 as its crypto.
+
+pub mod sr25519 {
+    pub mod app_sr25519 {
+        use sp_application_crypto::{app_crypto, key_types::AURA, sr25519};
+        app_crypto!(sr25519, AURA);
+    }
+
+    sp_application_crypto::with_pair! {
+        /// An Aura authority keypair using S/R 25519 as its crypto.
+        pub type AuthorityPair = app_sr25519::Pair;
+    }
+
+    /// An Aura authority signature using S/R 25519 as its crypto.
+    pub type AuthoritySignature = app_sr25519::Signature;
+
+    /// An Aura authority identifier using S/R 25519 as its crypto.
+    pub type AuthorityId = app_sr25519::Public;
+}
+
+
 
 /// Type of block number.
 pub type BlockNumber = u32;
@@ -212,7 +233,8 @@ pub const MY_KEY_TYPE: KeyTypeId = KeyTypeId(*b"myk!");
 use frame_system::offchain::SigningTypes;
 
 
-
+// Define your custom crypto using the `app_crypto` macro
+// app_crypto!(sr25519, MY_CRYPTO_ID);
 
 #[derive(
     Clone,
@@ -226,12 +248,13 @@ use frame_system::offchain::SigningTypes;
     Deserialize,
     RuntimeDebug,
 )]
+
 pub struct MyCrypto;
 
-impl frame_system::offchain::AppCrypto<sr25519::Public, sr25519::Signature> for MyCrypto {
-    type RuntimeAppPublic = sr25519::AppPublic;
-    type GenericPublic = sr25519::Public;
-    type GenericSignature = sr25519::Signature;
+impl frame_system::offchain::AppCrypto<sr25519::AuthorityId, sr25519::AuthoritySignature> for MyCrypto {
+    type RuntimeAppPublic = sr25519::app_sr25519::Public;
+    type GenericPublic = sr25519::app_sr25519::Public;
+    type GenericSignature = sr25519::app_sr25519::Signature;
 }
 use frame_system::Config as FrameSystemConfig;
 
