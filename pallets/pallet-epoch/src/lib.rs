@@ -183,7 +183,7 @@ pub mod pallet {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type WeightInfo: WeightInfo;
 
-        type AuthorityId: AppPublic + From<sp_core::sr25519::Public> + AppCrypto;
+        type AuthorityId: AppCrypto + From<sp_core::sr25519::Public> + PartialEq;
 
         type ValidatorId: Clone
             + From<Self::AccountId>
@@ -306,12 +306,12 @@ pub mod pallet {
             Ok(T::AuthorityId::from(public_key))
         }
 
-        // Function to convert AuthorityId to AccountId32
-        fn convert_to_account_id32(key: T::AuthorityId) -> AccountId32 {
-            let public_key = key.to_raw_vec();
-            AccountId32::from_slice(&public_key)
-                .expect("Failed to convert AuthorityId to AccountId32")
-        }
+        // // Function to convert AuthorityId to AccountId32
+        // fn convert_to_account_id32(key: T::AuthorityId) -> AccountId32 {
+        //     let public_key = key.to_raw_vec();
+        //     AccountId32::from_slice(&public_key)
+        //         .expect("Failed to convert AuthorityId to AccountId32")
+        // }
 
         fn is_leader() -> bool {
             // Fetch the current set of validators
