@@ -315,47 +315,6 @@ EVM accounts use the derivation path `m//44//60//0/0/<address_index>`,
 see [BIP44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki) for more information.
 You can use a different mnemonic to register your session keys, for example using a hardware wallet.
 
-You can derive a key from your mnemonic only you know.
-
-For example to get AURA and IM_ONLINE Key:
-
-```bash
-subkey inspect --scheme sr25519 "bottom drive obey lake curtain smoke basket hold race lonely fit walk//My//Secret//Derivation//Path"
-```
-
-For example to get a GRANDPA Key:
-
-```bash
-subkey inspect --scheme ed25519 "bottom drive obey lake curtain smoke basket hold race lonely fit walk//My//Secret//Derivation//Path"
-```
-
-This would result in the following private keys for your validator:
-
-```
-sr25519
-
-Secret Key URI `bottom drive obey lake curtain smoke basket hold race lonely fit walk//My//Secret//Derivation//Path` is account:
-  Network ID:        substrate
-  Secret seed:       0xd159936a485167ec22d29876190adb9f8ed08879a28b46f9ee075ef3dcd7b4f2
-  Public key (hex):  0x00209b81aef17a150140d06979eb54bb23d8f7f72a25d7a1b429c72cdf19f555
-  Account ID:        0x00209b81aef17a150140d06979eb54bb23d8f7f72a25d7a1b429c72cdf19f555
-  Public key (SS58): 5C4sYUugQF27DktbzXhSVJNuMtJrFVvPP61bumtvTYKmTqak
-  SS58 Address:      5C4sYUugQF27DktbzXhSVJNuMtJrFVvPP61bumtvTYKmTqak
-
-ed25519
-
-Secret Key URI `bottom drive obey lake curtain smoke basket hold race lonely fit walk//My//Secret//Derivation//Path` is account:
-  Network ID:        substrate
-  Secret seed:       0xd64f614f9a1c218a43e7a066e8676dd23ef2ccab82232dae7180af50f788e376
-  Public key (hex):  0x579f175039ffaad0740f6e578235940a0e6ef0e8f3a9554334e2cf475fb38f6d
-  Account ID:        0x579f175039ffaad0740f6e578235940a0e6ef0e8f3a9554334e2cf475fb38f6d
-  Public key (SS58): 5E3bHNRo6pxpUetjZxZ5XWGaPcRF7RM7ZUbySuiLPZ1cjp3G
-  SS58 Address:      5E3bHNRo6pxpUetjZxZ5XWGaPcRF7RM7ZUbySuiLPZ1cjp3G
-```
-
-The derivation path `//My//Secret//Derivation//Path` cannot give us valid EVM account, so we would use a different
-account for the session key registration.
-
 ## 6. Set Validator Private Keys
 
 ### 6.1 Adding private keys to the Validator keyring
