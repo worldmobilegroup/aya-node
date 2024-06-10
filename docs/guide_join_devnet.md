@@ -238,7 +238,7 @@ You have 2 ways to generate your keys:
 > [!NOTE] 
 > If you want to use the scripts in the utils folder of the aya-node repository you need to install subkey.
 
-### 5.2 EVM Account and Derived Keys
+### 5.2 Optional: EVM Account and Derived Keys
 
 **If you use the mnemonic without derivation throughout this guide, there is no need to execute this part 5.1 as you
 will restore the mnemonic in a wallet and have your address there. Anyway this part has useful information for key
@@ -307,9 +307,8 @@ Private key: 			0x5fb92d6e98884f76de468fa3f6278f8807c48bebc13595d45af5bdc4da7021
 You can also get the compressed EVM key by restoring the mnemonic in a ethereum wallet e.g. MetaMask or Talisman. You
 can choose in the wallet what address_indexes you want to add.
 
-***Additional Information:***
-
-If you want to use a derived key the sr25519 and the ed25519 private keys will be different.
+> [!NOTE]
+> If you want to use a derived key the sr25519 and the ed25519 private keys will be different.
 To calculate a EVM address you need to know the derivation path and for some derivation path you cannot calculate an EVM
 account.
 EVM accounts use the derivation path `m//44//60//0/0/<address_index>`,
