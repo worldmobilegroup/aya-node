@@ -235,7 +235,8 @@ You have 2 ways to generate your keys:
 * Using [subkey](guide_keys_subkey.md)
 * Using [aya-node binary](guide_keys_aya_bin.md) 
 
-> [!NOTE] If you want to use the scripts in the utils folder of the aya-node repository you need to install subkey.
+> [!NOTE] 
+> If you want to use the scripts in the utils folder of the aya-node repository you need to install subkey.
 
 ### 5.2 EVM Account and Derived Keys
 
