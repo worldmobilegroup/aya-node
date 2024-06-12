@@ -60,6 +60,8 @@ substrate-validator-set = { workspace = true }
 pallet-identity = { workspace = true }
 pallet-treasury = { workspace = true }
 pallet-asset-rate = { workspace = true }
+pallet-bounties = { workspace = true }
+pallet-child-bounties = { workspace = true }
 
 # Frontier
 fp-account = { workspace = true, features = ["serde"] }
@@ -130,6 +132,8 @@ std = [
 	"pallet-im-online/std",
 	"pallet-identity/std",
 	"pallet-treasury/std",
+	"pallet-bounties/std",
+	"pallet-child-bounties/std",
 	# Frontier
 	"fp-account/std",
 	"fp-evm/std",

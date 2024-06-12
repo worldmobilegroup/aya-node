@@ -127,6 +127,8 @@ pallet-proxy = { git = "https://github.com/paritytech/polkadot-sdk", branch = "r
 pallet-identity = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.9.0", default-features = false }
 pallet-treasury = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.9.0", default-features = false }
 pallet-asset-rate = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.9.0", default-features = false }
+pallet-bounties = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.9.0", default-features = false }
+pallet-child-bounties = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.9.0", default-features = false }
 
 #validator-set = { package = 'substrate-validator-set', branch = "master", git = 'https://github.com/gautamdhameja/substrate-validator-set.git', default-features = false }
 substrate-validator-set = { path = "pallets/substrate-validator-set", default-features = false }
