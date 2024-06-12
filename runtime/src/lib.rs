@@ -4,10 +4,10 @@
 #![feature(trivial_bounds)]
 use frame_support::parameter_types;
 use frame_support::storage::{StorageAppend, StorageMap};
+use frame_support::StorageValue;
 use scale_codec::EncodeLike;
 use sp_runtime::traits::Saturating;
-
-use frame_support::StorageValue;
+use sp_runtime::{MultiSignature, MultiSigner};
 #[allow(clippy::new_without_default, clippy::or_fun_call)]
 #[cfg_attr(feature = "runtime-benchmarks", warn(unused_crate_dependencies))]
 // Make the WASM binary available.
@@ -16,7 +16,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 use scale_codec::{Decode, Encode};
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-
+use sp_consensus_aura::sr25519::AuthorityId;
 use sp_consensus_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
 use sp_core::{
     crypto::{ByteArray, KeyTypeId},
@@ -64,6 +64,7 @@ use frame_system::{EnsureRoot, EnsureSigned};
 use pallet_transaction_payment::{ConstFeeMultiplier, CurrencyAdapter};
 // Frontier
 use fp_account::EthereumSignature;
+use fp_account::EthereumSigner;
 use fp_evm::weight_per_gas;
 use fp_rpc::TransactionStatus;
 use pallet_ethereum::{
@@ -87,10 +88,10 @@ pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::Multiplier;
 
+use frame_system::offchain::{
+    AppCrypto, CreateSignedTransaction, SendTransactionTypes, SigningTypes,
+};
 pub use pallet_epoch;
-
-use frame_system::offchain::AppCrypto;
-
 
 mod precompiles;
 
@@ -106,19 +107,9 @@ pub mod sr25519 {
         app_crypto!(sr25519, AURA);
     }
 
-    sp_application_crypto::with_pair! {
-        /// An Aura authority keypair using S/R 25519 as its crypto.
-        pub type AuthorityPair = app_sr25519::Pair;
-    }
-
-    /// An Aura authority signature using S/R 25519 as its crypto.
-    pub type AuthoritySignature = app_sr25519::Signature;
-
-    /// An Aura authority identifier using S/R 25519 as its crypto.
     pub type AuthorityId = app_sr25519::Public;
+    pub type AuthoritySignature = app_sr25519::Signature;
 }
-
-
 
 /// Type of block number.
 pub type BlockNumber = u32;
@@ -228,37 +219,108 @@ use frame_support::pallet_prelude::{MaxEncodedLen, TypeInfo};
 use sp_runtime::serde::{Deserialize, Serialize};
 use sp_runtime::RuntimeDebug;
 
-// Define the key type identifier
-pub const MY_KEY_TYPE: KeyTypeId = KeyTypeId(*b"myk!");
-use frame_system::offchain::SigningTypes;
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, TypeInfo)]
+pub enum MultiAccountId {
+    AccountId20(AccountId20),
+    AccountId32(AccountId32),
+}
+
+impl From<AccountId20> for MultiAccountId {
+    fn from(id: AccountId20) -> Self {
+        MultiAccountId::AccountId20(id)
+    }
+}
+
+impl From<AccountId32> for MultiAccountId {
+    fn from(id: AccountId32) -> Self {
+        MultiAccountId::AccountId32(id)
+    }
+}
 
 
-// Define your custom crypto using the `app_crypto` macro
-// app_crypto!(sr25519, MY_CRYPTO_ID);
 
-#[derive(
-    Clone,
-    PartialEq,
-    Eq,
-    Encode,
-    Decode,
-    MaxEncodedLen,
-    TypeInfo,
-    Serialize,
-    Deserialize,
-    RuntimeDebug,
-)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, TypeInfo)]
+pub enum MySigner {
+    Ethereum(EthereumSigner),
+    Multi(MultiSigner),
+}
 
-pub struct MyCrypto;
+impl IdentifyAccount for MySigner {
+    type AccountId = MultiAccountId;
 
-impl frame_system::offchain::AppCrypto<sr25519::AuthorityId, sr25519::AuthoritySignature> for MyCrypto {
+    fn into_account(self) -> Self::AccountId {
+        match self {
+            MySigner::Multi(signer) => MultiAccountId::AccountId32(signer.into_account()),
+            MySigner::Ethereum(signer) => MultiAccountId::AccountId20(signer.into_account()),
+        }
+    }
+}
+
+impl From<MultiSigner> for MySigner {
+    fn from(signer: MultiSigner) -> Self {
+        MySigner::Multi(signer)
+    }
+}
+
+impl From<EthereumSigner> for MySigner {
+    fn from(signer: EthereumSigner) -> Self {
+        MySigner::Ethereum(signer)
+    }
+}
+
+impl frame_system::offchain::AppCrypto<sr25519::AuthorityId, sr25519::AuthoritySignature>
+    for AuthorityId
+{
     type RuntimeAppPublic = sr25519::app_sr25519::Public;
     type GenericPublic = sr25519::app_sr25519::Public;
     type GenericSignature = sr25519::app_sr25519::Signature;
 }
-use frame_system::Config as FrameSystemConfig;
 
-pub type MySigner<T> = frame_system::offchain::Signer<T, <T as pallet_aura::Config>::AuthorityId>;
+impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
+where
+    RuntimeCall: From<LocalCall>,
+{
+    fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+        call: RuntimeCall,
+        public: <Signature as Verify>::Signer,
+        account: AccountId,
+        nonce: Nonce,
+    ) -> Option<(
+        RuntimeCall,
+        <UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
+    )> {
+        let tip = 0;
+        let period = BlockHashCount::get()
+            .checked_next_power_of_two()
+            .map(|c| c / 2)
+            .unwrap_or(2) as u64;
+        let current_block = System::block_number()
+            .saturated_into::<u64>()
+            .saturating_sub(1);
+        let era = Era::mortal(period, current_block);
+        let extra = (
+            frame_system::CheckNonZeroSender::<Runtime>::new(),
+            frame_system::CheckSpecVersion::<Runtime>::new(),
+            frame_system::CheckTxVersion::<Runtime>::new(),
+            frame_system::CheckGenesis::<Runtime>::new(),
+            frame_system::CheckEra::<Runtime>::from(era),
+            frame_system::CheckNonce::<Runtime>::from(nonce),
+            frame_system::CheckWeight::<Runtime>::new(),
+            pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+        );
+        let raw_payload = SignedPayload::new(call, extra)
+            .map_err(|e| {
+                log::warn!("Unable to create signed payload: {:?}", e);
+            })
+            .ok()?;
+        let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
+        let address = account;
+        let (call, extra, _) = raw_payload.deconstruct();
+        Some((call, (address, signature.into(), extra)))
+    }
+}
+
+use frame_system::Config as FrameSystemConfig;
 
 parameter_types! {
     pub const Version: RuntimeVersion = VERSION;
@@ -351,7 +413,7 @@ parameter_types! {
 }
 
 impl pallet_aura::Config for Runtime {
-    type AuthorityId = AuraId;
+    type AuthorityId = AuthorityId;
     type MaxAuthorities = MaxAuthorities;
     type DisabledValidators = ();
     type AllowMultipleBlocksPerSlot = ConstBool<false>;
@@ -532,7 +594,7 @@ impl From<ValidatorId> for AccountId20 {
 impl pallet_epoch::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
-    type AuthorityId = sp_consensus_aura::sr25519::AuthorityId;
+    type AuthorityId = AuthorityId;
     type ValidatorId = ValidatorId;
     type AccountId32Convert = AccountId32Wrapper;
     type Call = RuntimeCall;
@@ -561,50 +623,6 @@ parameter_types! {
     pub const MaxKeys: u32 = 10_000;
     pub const MaxPeerInHeartbeats: u32 = 10_000;
     pub const MaxPeerDataEncodingSize: u32 = 1_000;
-}
-
-impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
-where
-    RuntimeCall: From<LocalCall>,
-{
-    fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
-        call: RuntimeCall,
-        public: <Signature as Verify>::Signer,
-        account: AccountId,
-        nonce: Nonce,
-    ) -> Option<(
-        RuntimeCall,
-        <UncheckedExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
-    )> {
-        let tip = 0;
-        let period = BlockHashCount::get()
-            .checked_next_power_of_two()
-            .map(|c| c / 2)
-            .unwrap_or(2) as u64;
-        let current_block = System::block_number()
-            .saturated_into::<u64>()
-            .saturating_sub(1);
-        let era = Era::mortal(period, current_block);
-        let extra = (
-            frame_system::CheckNonZeroSender::<Runtime>::new(),
-            frame_system::CheckSpecVersion::<Runtime>::new(),
-            frame_system::CheckTxVersion::<Runtime>::new(),
-            frame_system::CheckGenesis::<Runtime>::new(),
-            frame_system::CheckEra::<Runtime>::from(era),
-            frame_system::CheckNonce::<Runtime>::from(nonce),
-            frame_system::CheckWeight::<Runtime>::new(),
-            pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
-        );
-        let raw_payload = SignedPayload::new(call, extra)
-            .map_err(|e| {
-                log::warn!("Unable to create signed payload: {:?}", e);
-            })
-            .ok()?;
-        let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
-        let address = account;
-        let (call, extra, _) = raw_payload.deconstruct();
-        Some((call, (address, signature.into(), extra)))
-    }
 }
 
 impl frame_system::offchain::SigningTypes for Runtime {

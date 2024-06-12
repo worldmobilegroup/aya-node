@@ -25,7 +25,7 @@ use sp_runtime::codec::{Decode, Encode};
 use scale_info::prelude::format;
 
 use serde_json;
-use sp_consensus_aura::ed25519::AuthorityId;
+use sp_consensus_aura::sr25519::AuthorityId;
 use sp_core::Public;
 use sp_runtime::offchain::*;
 
@@ -59,13 +59,11 @@ use sp_runtime::traits::AccountIdConversion;
 
 use sp_runtime::AccountId32;
 
+use aya_traits::OffchainBound;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 use sp_runtime::MultiSigner;
-use aya_traits::OffchainBound;
 // Define the type for the maximum length
 pub struct MaxDataLength;
-
-
 
 impl Get<u32> for MaxDataLength {
     fn get() -> u32 {
@@ -163,15 +161,10 @@ impl CustomEvent {
     }
 }
 
-
-
-
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
     use sp_core::ByteArray;
-
-    
 
     #[pallet::config]
     pub trait Config:
@@ -193,10 +186,6 @@ pub mod pallet {
         type Call: From<Call<Self>>;
     }
 
-
-
-    
-
     #[pallet::pallet]
     #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
@@ -208,11 +197,10 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
-        where
-            T: frame_system::offchain::SendTransactionTypes<Call<T>>,
-    
-
-    
+    where
+        T: frame_system::offchain::SendTransactionTypes<Call<T>>,
+        T: frame_system::offchain::SigningTypes,
+        T::AuthorityId: AppCrypto + From<sp_core::sr25519::Public>,
     {
         fn offchain_worker(block_number: BlockNumberFor<T>) {
             // Step 3: Message Processing
@@ -222,8 +210,9 @@ pub mod pallet {
 
             // Check if the validator is the leader
             if Self::is_leader() {
-                // Create and submit an inclusion transaction
-                // if let Err(e) = Self::create_inclusion_transaction() {
+                // // Create and submit an inclusion transaction
+                // if let Err(e) = Self::create_inclusion_transaction()
+                // {
                 //     log::error!("Error creating inclusion transaction: {:?}", e);
                 // }
             }
@@ -251,14 +240,13 @@ pub mod pallet {
         >,
     {
         fn create_inclusion_transaction() -> Result<(), &'static str> {
-            let mut events: sp_application_crypto::Vec<CustomEvent> = Vec::new();
-            for (event_id, event) in EventStorage::<T>::iter() {
+            let mut events: Vec<CustomEvent> = Vec::new();
+            for (_, event) in EventStorage::<T>::iter() {
                 events.push(event);
             }
 
             let call = Call::<T>::submit_inclusion_transaction { events };
 
-            //     // Retrieve the local account to sign the transaction
             let signer = frame_system::offchain::Signer::<T, T::AuthorityId>::any_account();
             if let Some((_, res)) = signer.send_signed_transaction(|_acct| call.clone()) {
                 return res.map_err(|_| "Failed to send signed transaction");
