@@ -868,7 +868,11 @@ dependencies = [
 name = "aya-traits"
 version = "0.1.0"
 dependencies = [
+ "fp-account",
+ "frame-support",
  "frame-system",
+ "sp-core",
+ "sp-runtime",
 ]
 
 [[package]]

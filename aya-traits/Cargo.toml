@@ -7,4 +7,7 @@ repository.workspace = true
 
 [dependencies]
 frame-system = { workspace = true }
-
+frame-support = { workspace = true }
+sp-runtime = { workspace = true }
+sp-core = { workspace = true }
+fp-account = { workspace = true }
