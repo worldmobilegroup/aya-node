@@ -118,11 +118,11 @@ pub mod sr25519 {
 pub type BlockNumber = u32;
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
-pub type Signature = EthereumSignature;
+pub type Signature = MySignature;
 
 /// Some way of identifying an account on the chain. We intentionally make it equivalent
 /// to the public key of our transaction signing scheme.
-pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
+pub type AccountId = MultiAccountId;
 
 /// The type for looking up accounts. We don't expect more than 4 billion of them, but you
 /// never know...
@@ -219,14 +219,11 @@ pub const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 pub const MAXIMUM_BLOCK_LENGTH: u32 = 5 * 1024 * 1024;
 
 use frame_support::pallet_prelude::{MaxEncodedLen};
-
+use scale_info::TypeInfo;
 use scale_codec::{Error, Input, Output};
 use sp_runtime::serde::{Deserialize, Serialize};
 use sp_runtime::RuntimeDebug;
 use sp_std::fmt;
-
-use scale_info::TypeInfo;
-
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, TypeInfo)]
 pub enum MultiAccountId {
@@ -234,6 +231,13 @@ pub enum MultiAccountId {
     AccountId32(AccountId32),
 }
 
+impl IdentifyAccount for MultiAccountId {
+    type AccountId = MultiAccountId;
+
+    fn into_account(self) -> Self::AccountId {
+        self
+    }
+}
 impl From<AccountId20> for MultiAccountId {
     fn from(id: AccountId20) -> Self {
         MultiAccountId::AccountId20(id)
@@ -245,8 +249,6 @@ impl From<AccountId32> for MultiAccountId {
         MultiAccountId::AccountId32(id)
     }
 }
-
-//////////////////////
 
 // Define the EthereumSigner trait
 pub trait EthereumSigner: EthereumSignerClone + fmt::Debug {
@@ -323,7 +325,11 @@ impl Decode for MySigner {
         match discriminator {
             0 => {
                 let raw_vec: Vec<u8> = Decode::decode(input)?;
-                let eth_signer = MyEthereumSigner(raw_vec.try_into().map_err(|_| Error::from("Invalid length"))?);
+                let eth_signer = MyEthereumSigner(
+                    raw_vec
+                        .try_into()
+                        .map_err(|_| Error::from("Invalid length"))?,
+                );
                 Ok(MySigner::Ethereum(Box::new(eth_signer)))
             }
             1 => {
@@ -367,7 +373,7 @@ impl From<MySigner> for MultiSignature {
                         array
                     });
                     MultiSignature::Ed25519(sig)
-                },
+                }
                 MultiSigner::Sr25519(pub_key) => {
                     let sig = sp_core::sr25519::Signature::from_raw({
                         let mut array = [0u8; 64];
@@ -375,7 +381,7 @@ impl From<MySigner> for MultiSignature {
                         array
                     });
                     MultiSignature::Sr25519(sig)
-                },
+                }
                 MultiSigner::Ecdsa(pub_key) => {
                     let sig = sp_core::ecdsa::Signature::from_raw({
                         let mut array = [0u8; 65];
@@ -383,34 +389,88 @@ impl From<MySigner> for MultiSignature {
                         array
                     });
                     MultiSignature::Ecdsa(sig)
-                },
+                }
             },
             MySigner::Ethereum(eth_signer) => {
                 let raw_vec = eth_signer.to_raw_vec();
-                let sig = sp_core::ecdsa::Signature::from_slice(&raw_vec).expect("Expected 65 bytes for ECDSA signature");
+                let sig = sp_core::ecdsa::Signature::from_slice(&raw_vec)
+                    .expect("Expected 65 bytes for ECDSA signature");
                 MultiSignature::Ecdsa(sig)
             }
         }
     }
 }
 
-//////////////////
+use sp_application_crypto::{ecdsa, ed25519};
 
-impl frame_system::offchain::AppCrypto<sr25519::AuthorityId, sr25519::AuthoritySignature>
-    for AuthorityId
-{
-    type RuntimeAppPublic = sr25519::app_sr25519::Public;
-    type GenericPublic = sr25519::app_sr25519::Public;
-    type GenericSignature = sr25519::app_sr25519::Signature;
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, TypeInfo)]
+enum MySignature {
+    Ethereum(ecdsa::Signature),
+    Sr25519(sr25519::Signature),
+    Ed25519(ed25519::Signature),
 }
 
-impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
+impl sp_runtime::traits::Verify for MySignature {
+    type Signer = MultiSigner;
+
+    fn verify<L: Lazy<[u8]>>(&self, msg: L, signer: &Self::Signer) -> bool {
+        match self {
+            MySignature::Ethereum(sig) => {
+                if let MultiSigner::Ecdsa(s) = signer {
+                    sig.verify(msg, s)
+                } else {
+                    false
+                }
+            }
+            MySignature::Sr25519(sig) => {
+                if let MultiSigner::Sr25519(s) = signer {
+                    sig.verify(msg, s)
+                } else {
+                    false
+                }
+            }
+            MySignature::Ed25519(sig) => {
+                if let MultiSigner::Ed25519(s) = signer {
+                    sig.verify(msg, s)
+                } else {
+                    false
+                }
+            }
+        }
+    }
+}
+
+impl From<ecdsa::Signature> for MySignature {
+    fn from(sig: ecdsa::Signature) -> Self {
+        MySignature::Ethereum(sig)
+    }
+}
+
+impl From<sr25519::Signature> for MySignature {
+    fn from(sig: sr25519::Signature) -> Self {
+        MySignature::Sr25519(sig)
+    }
+}
+
+impl From<ed25519::Signature> for MySignature {
+    fn from(sig: ed25519::Signature) -> Self {
+        MySignature::Ed25519(sig)
+    }
+}
+
+impl frame_system::offchain::AppCrypto<MultiSigner, MySignature> for MySignature {
+    type RuntimeAppPublic = MultiSigner;
+    type GenericPublic = MultiSigner;
+    type GenericSignature = MySignature;
+}
+
+impl<C> frame_system::offchain::CreateSignedTransaction<C> for Runtime
 where
-    RuntimeCall: From<LocalCall>,
+    RuntimeCall: From<C>,
 {
-    fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+    fn create_transaction<OC: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
         call: RuntimeCall,
-        public: <Signature as Verify>::Signer,
+        public: MultiSigner,
         account: AccountId,
         nonce: Nonce,
     ) -> Option<(
@@ -441,12 +501,14 @@ where
                 log::warn!("Unable to create signed payload: {:?}", e);
             })
             .ok()?;
-        let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
+        let signature = raw_payload.using_encoded(|payload| OC::sign(payload, public))?;
         let address = account;
         let (call, extra, _) = raw_payload.deconstruct();
         Some((call, (address, signature.into(), extra)))
     }
 }
+
+
 
 use frame_system::Config as FrameSystemConfig;
 
@@ -506,7 +568,7 @@ impl frame_system::Config for Runtime {
     type Hashing = Hashing;
     /// The identifier used to distinguish between accounts.
     // type AccountId = AccountId;
-    type AccountId = AccountId20;
+    type AccountId = AccountId;
     /// The lookup mechanism to get account ID from whatever is passed in dispatchers.
     type Lookup = IdentityLookup<AccountId>;
     /// The block type.
@@ -754,8 +816,8 @@ parameter_types! {
 }
 
 impl frame_system::offchain::SigningTypes for Runtime {
-    type Public = <Signature as Verify>::Signer;
-    type Signature = Signature;
+    type Public = MultiSigner;
+    type Signature = MySignature;
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
