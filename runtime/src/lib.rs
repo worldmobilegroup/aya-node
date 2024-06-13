@@ -64,7 +64,8 @@ use frame_system::{EnsureRoot, EnsureSigned};
 use pallet_transaction_payment::{ConstFeeMultiplier, CurrencyAdapter};
 // Frontier
 use fp_account::EthereumSignature;
-use fp_account::EthereumSigner;
+// Rename the imported EthereumSigner to avoid conflict
+use fp_account::EthereumSigner as ImportedEthereumSigner;
 use fp_evm::weight_per_gas;
 use fp_rpc::TransactionStatus;
 use pallet_ethereum::{
@@ -218,6 +219,10 @@ pub const MAXIMUM_BLOCK_LENGTH: u32 = 5 * 1024 * 1024;
 use frame_support::pallet_prelude::{MaxEncodedLen, TypeInfo};
 use sp_runtime::serde::{Deserialize, Serialize};
 use sp_runtime::RuntimeDebug;
+use sp_std::fmt;
+use scale_codec::{Input, Output, Error};
+
+
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, TypeInfo)]
 pub enum MultiAccountId {
@@ -237,21 +242,91 @@ impl From<AccountId32> for MultiAccountId {
     }
 }
 
+//////////////////////
 
+// Define the EthereumSigner trait
+pub trait EthereumSigner: EthereumSignerClone + fmt::Debug {
+    fn to_raw_vec(&self) -> Vec<u8>;
+}
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, TypeInfo)]
+pub trait EthereumSignerClone {
+    fn clone_box(&self) -> Box<dyn EthereumSigner>;
+}
+
+impl<T> EthereumSignerClone for T
+where
+    T: 'static + EthereumSigner + Clone,
+{
+    fn clone_box(&self) -> Box<dyn EthereumSigner> {
+        Box::new(self.clone())
+    }
+}
+
+impl Clone for Box<dyn EthereumSigner> {
+    fn clone(&self) -> Box<dyn EthereumSigner> {
+        self.clone_box()
+    }
+}
+
+// Rename the conflicting struct
+#[derive(Clone, Debug)]
+pub struct MyEthereumSigner([u8; 65]);
+
+impl EthereumSigner for MyEthereumSigner {
+    fn to_raw_vec(&self) -> Vec<u8> {
+        self.0.to_vec()
+    }
+}
+
+#[derive(Clone, Debug)]
 pub enum MySigner {
-    Ethereum(EthereumSigner),
+    Ethereum(Box<dyn EthereumSigner>),
     Multi(MultiSigner),
 }
 
-impl IdentifyAccount for MySigner {
-    type AccountId = MultiAccountId;
+// Implement PartialEq and Eq manually
+impl PartialEq for MySigner {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (MySigner::Ethereum(a), MySigner::Ethereum(b)) => a.to_raw_vec() == b.to_raw_vec(),
+            (MySigner::Multi(a), MySigner::Multi(b)) => a == b,
+            _ => false,
+        }
+    }
+}
 
-    fn into_account(self) -> Self::AccountId {
+impl Eq for MySigner {}
+
+// Implement Encode and Decode manually
+impl Encode for MySigner {
+    fn encode_to<W: Output + ?Sized>(&self, dest: &mut W) {
         match self {
-            MySigner::Multi(signer) => MultiAccountId::AccountId32(signer.into_account()),
-            MySigner::Ethereum(signer) => MultiAccountId::AccountId20(signer.into_account()),
+            MySigner::Ethereum(eth_signer) => {
+                dest.push_byte(0);
+                eth_signer.to_raw_vec().encode_to(dest);
+            }
+            MySigner::Multi(multi_signer) => {
+                dest.push_byte(1);
+                multi_signer.encode_to(dest);
+            }
+        }
+    }
+}
+
+impl Decode for MySigner {
+    fn decode<I: Input>(input: &mut I) -> Result<Self, Error> {
+        let discriminator = input.read_byte()?;
+        match discriminator {
+            0 => {
+                let raw_vec: Vec<u8> = Decode::decode(input)?;
+                let eth_signer = MyEthereumSigner(raw_vec.try_into().map_err(|_| Error::from("Invalid length"))?);
+                Ok(MySigner::Ethereum(Box::new(eth_signer)))
+            }
+            1 => {
+                let multi_signer = MultiSigner::decode(input)?;
+                Ok(MySigner::Multi(multi_signer))
+            }
+            _ => Err(Error::from("Invalid MySigner discriminator")),
         }
     }
 }
@@ -262,11 +337,60 @@ impl From<MultiSigner> for MySigner {
     }
 }
 
-impl From<EthereumSigner> for MySigner {
-    fn from(signer: EthereumSigner) -> Self {
+impl From<Box<dyn EthereumSigner>> for MySigner {
+    fn from(signer: Box<dyn EthereumSigner>) -> Self {
         MySigner::Ethereum(signer)
     }
 }
+
+impl EthereumSigner for MySigner {
+    fn to_raw_vec(&self) -> Vec<u8> {
+        match self {
+            MySigner::Ethereum(signer) => signer.to_raw_vec(),
+            MySigner::Multi(_) => vec![], // Implement as necessary for MultiSigner
+        }
+    }
+}
+
+impl From<MySigner> for MultiSignature {
+    fn from(signer: MySigner) -> Self {
+        match signer {
+            MySigner::Multi(multi_signer) => match multi_signer {
+                MultiSigner::Ed25519(pub_key) => {
+                    let sig = sp_core::ed25519::Signature::from_raw({
+                        let mut array = [0u8; 64];
+                        array[..32].copy_from_slice(&pub_key.0);
+                        array
+                    });
+                    MultiSignature::Ed25519(sig)
+                },
+                MultiSigner::Sr25519(pub_key) => {
+                    let sig = sp_core::sr25519::Signature::from_raw({
+                        let mut array = [0u8; 64];
+                        array[..32].copy_from_slice(&pub_key.0);
+                        array
+                    });
+                    MultiSignature::Sr25519(sig)
+                },
+                MultiSigner::Ecdsa(pub_key) => {
+                    let sig = sp_core::ecdsa::Signature::from_raw({
+                        let mut array = [0u8; 65];
+                        array[..33].copy_from_slice(&pub_key.0);
+                        array
+                    });
+                    MultiSignature::Ecdsa(sig)
+                },
+            },
+            MySigner::Ethereum(eth_signer) => {
+                let raw_vec = eth_signer.to_raw_vec();
+                let sig = sp_core::ecdsa::Signature::from_slice(&raw_vec).expect("Expected 65 bytes for ECDSA signature");
+                MultiSignature::Ecdsa(sig)
+            }
+        }
+    }
+}
+
+//////////////////
 
 impl frame_system::offchain::AppCrypto<sr25519::AuthorityId, sr25519::AuthoritySignature>
     for AuthorityId
