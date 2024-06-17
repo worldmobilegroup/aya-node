@@ -16,29 +16,16 @@ use frame_support::weights::Weight;
 use frame_support::{dispatch::DispatchResult, pallet_prelude::*, storage::types::StorageMap};
 use frame_system::{offchain::*, pallet_prelude::*};
 use sp_application_crypto::AppCrypto;
-use sp_core::H256;
-use sp_std::result;
 
 use sp_runtime::codec::{Decode, Encode};
 
 use scale_info::prelude::format;
 
 use serde_json;
-use sp_consensus_aura::ed25519::AuthorityId;
-use sp_core::Public;
 use sp_runtime::offchain::*;
 
-use frame_support::unsigned::TransactionSource;
 
-use sp_core::offchain::Duration;
-use sp_runtime::offchain::http::Request;
-use sp_runtime::{
-    offchain as rt_offchain,
-    offchain::{
-        storage::StorageValueRef,
-        storage_lock::{BlockAndTime, StorageLock},
-    },
-};
+use sp_runtime::offchain as rt_offchain;
 use sp_runtime::{Deserialize, Serialize};
 use sp_std::prelude::*;
 use substrate_validator_set as validator_set;
@@ -46,20 +33,14 @@ use substrate_validator_set as validator_set;
 use pallet_session;
 
 use scale_info::TypeInfo;
-use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::crypto::KeyTypeId;
 use sp_runtime::app_crypto::AppPublic;
 
-use alloc::string::String;
 use frame_support::pallet_prelude::{BoundedVec, Get, MaxEncodedLen};
 use sp_std::vec::Vec;
 
-use sp_runtime::traits::AccountIdConversion;
 
 use sp_runtime::AccountId32;
 
-use sp_runtime::traits::{IdentifyAccount, Verify};
-use sp_runtime::MultiSigner;
 
 // Define the type for the maximum length
 pub struct MaxDataLength;
@@ -383,7 +364,7 @@ pub mod pallet {
             // For simplicity, let's assume we have the URLs of other nodes stored somewhere.
 
             // let urls = vec!["http://node1:5555", "http://node2:5555"]; // Replace with actual URLs
-            let mut all_events = Vec::new();
+            let all_events = Vec::new();
 
             // for url in urls {
             //     let response = Self::fetch_data(&format!("{}/list_all_events", url))?;
