@@ -3,8 +3,8 @@
 #![recursion_limit = "512"]
 #![feature(trivial_bounds)]
 use frame_support::parameter_types;
-use frame_support::{traits::{Everything}};
 use frame_support::storage::{StorageAppend, StorageMap};
+use frame_support::traits::Everything;
 use frame_support::StorageValue;
 use scale_codec::EncodeLike;
 use sp_runtime::traits::Saturating;
@@ -218,7 +218,7 @@ pub const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 );
 pub const MAXIMUM_BLOCK_LENGTH: u32 = 5 * 1024 * 1024;
 
-use frame_support::pallet_prelude::{MaxEncodedLen};
+use frame_support::pallet_prelude::MaxEncodedLen;
 
 use scale_codec::{Error, Input, Output};
 use sp_runtime::serde::{Deserialize, Serialize};
@@ -226,7 +226,6 @@ use sp_runtime::RuntimeDebug;
 use sp_std::fmt;
 
 use scale_info::TypeInfo;
-
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, TypeInfo)]
 pub enum MultiAccountId {
@@ -323,7 +322,11 @@ impl Decode for MySigner {
         match discriminator {
             0 => {
                 let raw_vec: Vec<u8> = Decode::decode(input)?;
-                let eth_signer = MyEthereumSigner(raw_vec.try_into().map_err(|_| Error::from("Invalid length"))?);
+                let eth_signer = MyEthereumSigner(
+                    raw_vec
+                        .try_into()
+                        .map_err(|_| Error::from("Invalid length"))?,
+                );
                 Ok(MySigner::Ethereum(Box::new(eth_signer)))
             }
             1 => {
@@ -367,7 +370,7 @@ impl From<MySigner> for MultiSignature {
                         array
                     });
                     MultiSignature::Ed25519(sig)
-                },
+                }
                 MultiSigner::Sr25519(pub_key) => {
                     let sig = sp_core::sr25519::Signature::from_raw({
                         let mut array = [0u8; 64];
@@ -375,7 +378,7 @@ impl From<MySigner> for MultiSignature {
                         array
                     });
                     MultiSignature::Sr25519(sig)
-                },
+                }
                 MultiSigner::Ecdsa(pub_key) => {
                     let sig = sp_core::ecdsa::Signature::from_raw({
                         let mut array = [0u8; 65];
@@ -383,11 +386,12 @@ impl From<MySigner> for MultiSignature {
                         array
                     });
                     MultiSignature::Ecdsa(sig)
-                },
+                }
             },
             MySigner::Ethereum(eth_signer) => {
                 let raw_vec = eth_signer.to_raw_vec();
-                let sig = sp_core::ecdsa::Signature::from_slice(&raw_vec).expect("Expected 65 bytes for ECDSA signature");
+                let sig = sp_core::ecdsa::Signature::from_slice(&raw_vec)
+                    .expect("Expected 65 bytes for ECDSA signature");
                 MultiSignature::Ecdsa(sig)
             }
         }
