@@ -1,17 +1,20 @@
 [package]
 name = "aya-traits"
 version = "0.1.0"
-authors.workspace = true
-edition.workspace = true
-repository.workspace = true
+authors = ["World Mobile Group"]
+edition = "2021"
 
 [dependencies]
-frame-system = { workspace = true }
-frame-support = { workspace = true }
-sp-runtime = { workspace = true }
+aya-shared = { path = "../aya-shared" }
 sp-core = { workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+scale-info = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+environmental = { workspace = true }
 fp-account = { workspace = true }
 scale-codec = { workspace = true }
 sp-application-crypto = { workspace = true }
-scale-info = { workspace = true }
-sp-std = { workspace = true }

@@ -7,6 +7,8 @@ extern crate sp_std;
 use alloc::string::ToString;
 pub use pallet::*;
 #[cfg(test)]
+pub mod mock;
+#[cfg(test)]
 mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -182,7 +184,7 @@ pub mod pallet {
             + From<Self::AccountId>
             + Into<AccountId32>
             + From<<Self as pallet_session::Config>::ValidatorId>;
-        type AccountId32Convert: From<AccountId32> + Into<Self::AccountId>;
+
         type Call: From<Call<Self>>;
     }
 
@@ -293,13 +295,6 @@ pub mod pallet {
             // Convert the public key to AuthorityId
             Ok(T::AuthorityId::from(public_key))
         }
-
-        // // Function to convert AuthorityId to AccountId32
-        // fn convert_to_account_id32(key: T::AuthorityId) -> AccountId32 {
-        //     let public_key = key.to_raw_vec();
-        //     AccountId32::from_slice(&public_key)
-        //         .expect("Failed to convert AuthorityId to AccountId32")
-        // }
 
         fn is_leader() -> bool {
             // Fetch the current set of validators
@@ -684,5 +679,43 @@ pub mod pallet {
         fn some_extrinsic() -> Weight {
             Weight::zero()
         }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        // use super::*;
+        // use crate::mock::{new_test_ext, RuntimeOrigin};
+        // use frame_support::{assert_noop, assert_ok};
+
+        // #[test]
+        // fn it_works_for_default_value() {
+        //     new_test_ext().execute_with(|| {
+        //         // Go past genesis block so events get deposited
+        //         // System::set_block_number(1);
+        //         // Dispatch a signed extrinsic.
+        //         assert_ok!(Epoch::do_something(RuntimeOrigin::signed(1), 42));
+        //         // Read pallet storage and assert an expected result.
+        //         assert_eq!(Epoch::event_storage(1), Some(42));
+        //         // Assert that the correct event was deposited
+        //         System::assert_last_event(
+        //             Event::SomethingStored {
+        //                 something: 42,
+        //                 who: 1,
+        //             }
+        //             .into(),
+        //         );
+        //     });
+        // }
+
+        // #[test]
+        // fn correct_error_for_none_value() {
+        //     new_test_ext().execute_with(|| {
+        //         // Ensure the expected error is thrown when no value is present.
+        //         assert_noop!(
+        //             Epoch::cause_error(RuntimeOrigin::signed(1)),
+        //             Error::<Test>::NoneValue
+        //         );
+        //     });
+        // }
     }
 }

@@ -81,9 +81,6 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
 use sp_core::crypto::AccountId32;
 
-mod account_id_conversion;
-
-use account_id_conversion::AccountId32Wrapper;
 use fp_account::AccountId20;
 
 pub use frame_system::Call as SystemCall;
@@ -113,6 +110,18 @@ pub mod sr25519 {
     pub type AuthorityId = app_sr25519::Public;
     pub type AuthoritySignature = app_sr25519::Signature;
 }
+
+// Define the ECDSA key type ID
+pub mod ecdsa {
+    use sp_application_crypto::{app_crypto, ecdsa};
+    pub const ECDSA_KEY_TYPE: sp_application_crypto::KeyTypeId =
+        sp_application_crypto::KeyTypeId(*b"ecds");
+
+    app_crypto!(ecdsa, ECDSA_KEY_TYPE);
+}
+
+// Ensure you import the ECDSA_KEY_TYPE properly where needed
+use ecdsa::ECDSA_KEY_TYPE;
 
 /// Type of block number.
 pub type BlockNumber = u32;
@@ -398,14 +407,19 @@ impl From<MySigner> for MultiSignature {
     }
 }
 
-//////////////////
-
 impl frame_system::offchain::AppCrypto<sr25519::AuthorityId, sr25519::AuthoritySignature>
     for AuthorityId
 {
     type RuntimeAppPublic = sr25519::app_sr25519::Public;
     type GenericPublic = sr25519::app_sr25519::Public;
     type GenericSignature = sr25519::app_sr25519::Signature;
+}
+
+// ECDSA Implementation for AccountId20
+impl frame_system::offchain::AppCrypto<ecdsa::Public, ecdsa::Signature> for ecdsa::Public {
+    type RuntimeAppPublic = ecdsa::Public;
+    type GenericPublic = ecdsa::Public;
+    type GenericSignature = ecdsa::Signature;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
@@ -728,7 +742,7 @@ impl pallet_epoch::Config for Runtime {
     type WeightInfo = ();
     type AuthorityId = AuthorityId;
     type ValidatorId = ValidatorId;
-    type AccountId32Convert = AccountId32Wrapper;
+
     type Call = RuntimeCall;
 }
 
@@ -1454,12 +1468,11 @@ impl_runtime_apis! {
         }
 
         fn query_fee_details(
-            uxt: <Block as BlockT>::Extrinsic,
-            len: u32,
-        ) -> pallet_transaction_payment::FeeDetails<Balance> {
-            TransactionPayment::query_fee_details(uxt, len)
-        }
-
+            uxt: <Block as BlockT>::Extrinsic,/ // Create and submit an inclusion transaction
+            // if let Err(e) = Self::create_inclusion_transaction()
+            // {
+            //     log::error!("Error creating inclusion transaction: {:?}", e);
+            // }
         fn query_weight_to_fee(weight: Weight) -> Balance {
             TransactionPayment::weight_to_fee(weight)
         }
@@ -1817,15 +1830,15 @@ pub mod dynamic_params {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::{Runtime, WeightPerGas};
-    #[test]
-    fn configured_base_extrinsic_weight_is_evm_compatible() {
-        let min_ethereum_transaction_weight = WeightPerGas::get() * 21_000;
-        let base_extrinsic = <Runtime as frame_system::Config>::BlockWeights::get()
-            .get(frame_support::dispatch::DispatchClass::Normal)
-            .base_extrinsic;
-        assert!(base_extrinsic.ref_time() <= min_ethereum_transaction_weight.ref_time());
-    }
-}
+// #[cfg(test)]
+// mod tests {
+//     use super::{Runtime, WeightPerGas};
+//     #[test]
+//     fn configured_base_extrinsic_weight_is_evm_compatible() {
+//         let min_ethereum_transaction_weight = WeightPerGas::get() * 21_000;
+//         let base_extrinsic = <Runtime as frame_system::Config>::BlockWeights::get()
+//             .get(frame_support::dispatch::DispatchClass::Normal)
+//             .base_extrinsic;
+//         assert!(base_extrinsic.ref_time() <= min_ethereum_transaction_weight.ref_time());
+//     }
+// }

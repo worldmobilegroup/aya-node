@@ -865,14 +865,30 @@ dependencies = [
 ]
 
 [[package]]
-name = "aya-traits"
+name = "aya-shared"
 version = "0.1.0"
 dependencies = [
  "fp-account",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
+ "sp-core",
+ "sp-runtime",
+]
+
+[[package]]
+name = "aya-traits"
+version = "0.1.0"
+dependencies = [
+ "aya-shared",
+ "environmental",
+ "fp-account",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
  "scale-info",
+ "serde",
+ "serde_json",
  "sp-application-crypto",
  "sp-core",
  "sp-runtime",
