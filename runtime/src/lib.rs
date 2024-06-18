@@ -362,6 +362,14 @@ impl From<ValidatorId> for AccountId20 {
     }
 }
 
+pub struct UnsignedPriority;
+
+impl Get<TransactionPriority> for UnsignedPriority {
+    fn get() -> TransactionPriority {
+        TransactionPriority::max_value()
+    }
+}
+
 impl pallet_epoch::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
@@ -369,11 +377,13 @@ impl pallet_epoch::Config for Runtime {
     type ValidatorId = ValidatorId;
     type AccountId32Convert = AccountId32Wrapper;
     type Call = RuntimeCall;
+    type UnsignedPriority = UnsignedPriority;
 }
 
 parameter_types! {
     pub const Period: u32 = 2 * MINUTES;
     pub const Offset: u32 = 0;
+
 }
 
 impl pallet_session::Config for Runtime {
@@ -444,8 +454,6 @@ impl frame_system::offchain::SigningTypes for Runtime {
     type Public = <Signature as Verify>::Signer;
     type Signature = Signature;
 }
-
-
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
 where
@@ -813,7 +821,7 @@ frame_support::construct_runtime!(
         Timestamp: pallet_timestamp,
         Balances: pallet_balances,
         ValidatorSet: substrate_validator_set,
-        Epoch: pallet_epoch::{Pallet, Call, Storage, Event<T>},
+        Epoch: pallet_epoch::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
         Session: pallet_session,
         ImOnline: pallet_im_online,
         Aura: pallet_aura,

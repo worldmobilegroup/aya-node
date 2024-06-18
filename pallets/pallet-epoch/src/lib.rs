@@ -181,6 +181,7 @@ pub mod pallet {
             + From<<Self as pallet_session::Config>::ValidatorId>;
         type AccountId32Convert: From<AccountId32> + Into<Self::AccountId>;
         type Call: From<Call<Self>>;
+        type UnsignedPriority: Get<u64>;
     }
 
     #[pallet::pallet]
@@ -201,14 +202,53 @@ pub mod pallet {
             }
 
             // Check if the validator is the leader
-            if Self::is_leader() {
-                // Create and submit an inclusion transaction
-                if let Err(e) = Self::create_inclusion_transaction() {
-                    log::error!("Error creating inclusion transaction: {:?}", e);
+            // if Self::is_leader() {
+            log::info!(
+                "Validator is the leader. Attempting to create and submit an inclusion transaction"
+            );
+            log::info!(
+                "Offchain worker is running at block number: {:?}",
+                block_number
+            );
+
+            // Create and submit an inclusion transaction
+            if let Err(e) = Self::create_inclusion_transaction() {
+                log::error!("Error creating inclusion transaction: {:?}", e);
+            }
+            // }
+        }
+    }
+
+    #[pallet::validate_unsigned]
+    impl<T: Config> ValidateUnsigned for Pallet<T> {
+        type Call = Call<T>;
+
+        fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+            log::info!("Validating unsigned transaction: {:?}", call);
+
+            // Only accept transactions from local or in-bundle sources
+            if !matches!(
+                source,
+                TransactionSource::Local | TransactionSource::InBlock
+            ) {
+                return InvalidTransaction::Call.into();
+            }
+
+            match call {
+                Call::submit_empty_transaction { nonce } => {
+                    log::info!("Validating submit_empty_transaction with nonce: {}", nonce);
+                    // Perform your validation logic here
+                    ValidTransaction::with_tag_prefix("InclusionTransaction")
+                        .priority(TransactionPriority::max_value())
+                        .longevity(TransactionLongevity::max_value())
+                        .propagate(true)
+                        .build()
                 }
+                _ => InvalidTransaction::Call.into(),
             }
         }
     }
+
     impl<T: Config> Pallet<T>
     where
         <T as pallet::Config>::ValidatorId:
@@ -225,23 +265,29 @@ pub mod pallet {
     impl<T: Config> Pallet<T>
     where
         T: frame_system::offchain::SendTransactionTypes<Call<T>>,
-        
     {
         fn create_inclusion_transaction() -> Result<(), &'static str> {
-            let mut events = Vec::new();
-            for (event_id, event) in EventStorage::<T>::iter() {
-                events.push(event);
-            }
-    
-            let call = Call::<T>::submit_inclusion_transaction { events };
-    
+            log::info!("Creating an empty inclusion transaction");
+
+            // Create a unique nonce
+            let nonce: u64 = sp_io::offchain::timestamp().unix_millis();
+
+            // Create an empty inclusion transaction with nonce
+            let call = Call::<T>::submit_empty_transaction { nonce };
+
             // Submit the transaction
-            frame_system::offchain::SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
-                .map_err(|_| "Failed to submit transaction")?;
-    
+            frame_system::offchain::SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
+                call.into(),
+            )
+            .map_err(|_| {
+                log::error!("Failed to submit unsigned transaction");
+                "Failed to submit transaction"
+            })?;
+
+            log::info!("Unsigned transaction submitted successfully");
+
             Ok(())
         }
-        
     }
 
     impl<T: Config> Pallet<T>
@@ -441,8 +487,6 @@ pub mod pallet {
             Some(EventStorage::<T>::get(event_id))
         }
 
-      
-
         fn request_event_from_peers(event_id: u64) -> Result<CustomEvent, Error<T>> {
             let url = Self::construct_url(&format!("/api/events/{}", event_id));
             let response = Self::fetch_data(&url).map_err(|_| <Error<T>>::HttpFetchingError)?;
@@ -629,17 +673,9 @@ pub mod pallet {
         }
 
         #[pallet::weight(10_000)]
-        pub fn submit_inclusion_transaction(
-            origin: OriginFor<T>,
-            events: Vec<CustomEvent>,
-        ) -> DispatchResult {
-            // Ensure the call is unsigned to allow offchain workers to submit
+        pub fn submit_empty_transaction(origin: OriginFor<T>, nonce: u64) -> DispatchResult {
             let _who = ensure_none(origin)?;
-            // Verify event sequence and order with committee
-
-            // Logic to handle the inclusion of events in the transaction
-            // Validate events, ensure proper ordering, etc.
-
+            // You can add logic here that makes use of the nonce if needed
             Ok(())
         }
     }
