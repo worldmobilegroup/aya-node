@@ -16,6 +16,7 @@ use frame_support::weights::Weight;
 use frame_support::{dispatch::DispatchResult, pallet_prelude::*, storage::types::StorageMap};
 use frame_system::{offchain::*, pallet_prelude::*};
 use sp_application_crypto::AppCrypto;
+use sp_application_crypto::RuntimePublic;
 use sp_core::H256;
 use sp_std::result;
 
@@ -25,6 +26,8 @@ use scale_info::prelude::format;
 
 use serde_json;
 use sp_consensus_aura::ed25519::AuthorityId;
+use sp_core::sr25519;
+use sp_core::Pair;
 use sp_core::Public;
 use sp_runtime::offchain::*;
 
@@ -32,6 +35,8 @@ use frame_support::unsigned::TransactionSource;
 
 use sp_core::offchain::Duration;
 use sp_runtime::offchain::http::Request;
+use sp_runtime::traits::ValidateUnsigned;
+
 use sp_runtime::{
     offchain as rt_offchain,
     offchain::{
@@ -59,6 +64,8 @@ use sp_runtime::traits::AccountIdConversion;
 use sp_runtime::AccountId32;
 
 use sp_runtime::traits::{IdentifyAccount, Verify};
+
+use sp_runtime::traits::{Extrinsic as ExtrinsicT, SignedExtension};
 use sp_runtime::MultiSigner;
 
 // Define the type for the maximum length
@@ -202,20 +209,44 @@ pub mod pallet {
             }
 
             // Check if the validator is the leader
-            // if Self::is_leader() {
-            log::info!(
+            // Check if the validator is the leader
+            if Self::is_leader() {
+                log::info!(
                 "Validator is the leader. Attempting to create and submit an inclusion transaction"
             );
-            log::info!(
-                "Offchain worker is running at block number: {:?}",
-                block_number
-            );
+                log::info!(
+                    "Offchain worker is running at block number: {:?}",
+                    block_number
+                );
 
-            // Create and submit an inclusion transaction
-            if let Err(e) = Self::create_inclusion_transaction() {
-                log::error!("Error creating inclusion transaction: {:?}", e);
+                // Create and submit an inclusion transaction
+                if let Err(e) = Self::create_inclusion_transaction() {
+                    log::error!("Error creating inclusion transaction: {:?}", e);
+                }
+                
+                // Encode the event as the payload
+                let event = CustomEvent::new(
+                    1, 
+                    vec![], 
+                    0, 
+                    0, 
+                    0, 
+                    vec![], 
+                    0, 
+                    0, 
+                    0, 
+                    vec![], 
+                    vec![], 
+                    None
+                ).expect("Error creating new event");
+                
+                let payload = event.encode();
+
+                // Submit the encoded payload as an unsigned transaction
+                if let Err(e) = Self::submit_unsigned_transaction(payload) {
+                    log::error!("Error submitting unsigned transaction: {:?}", e);
+                }
             }
-            // }
         }
     }
 
@@ -287,6 +318,19 @@ pub mod pallet {
             log::info!("Unsigned transaction submitted successfully");
 
             Ok(())
+        }
+    }
+
+    impl<T: Config> Pallet<T>
+    where
+        T: frame_system::offchain::SendTransactionTypes<Call<T>>,
+    {
+        fn submit_unsigned_transaction(payload: Vec<u8>) -> Result<(), &'static str> {
+            let call = Call::submit_encoded_payload { payload };
+            frame_system::offchain::SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
+                call.into(),
+            )
+            .map_err(|_| "Failed to submit unsigned transaction")
         }
     }
 
@@ -653,6 +697,19 @@ pub mod pallet {
         }
     }
 
+    impl<T: Config> Pallet<T> {
+        fn process_decoded_call(call: Call<T>) -> DispatchResult {
+            match call {
+                Call::submit_empty_transaction { nonce } => {
+                    log::info!("Processing decoded call with nonce: {}", nonce);
+                    // Add your processing logic here
+                    Ok(())
+                }
+                _ => Err(Error::<T>::InvalidCall.into()),
+            }
+        }
+    }
+
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::weight(10_000)]
@@ -671,11 +728,32 @@ pub mod pallet {
                 }
             }
         }
-
         #[pallet::weight(10_000)]
         pub fn submit_empty_transaction(origin: OriginFor<T>, nonce: u64) -> DispatchResult {
             let _who = ensure_none(origin)?;
             // You can add logic here that makes use of the nonce if needed
+            Ok(())
+        }
+
+        #[pallet::weight(10_000)]
+        pub fn submit_encoded_payload(origin: OriginFor<T>, payload: Vec<u8>) -> DispatchResult {
+            let _who = ensure_none(origin)?;
+
+            // Decode the payload
+            let call: Call<T> =
+                Decode::decode(&mut &payload[..]).map_err(|_| Error::<T>::InvalidPayload)?;
+
+            // Process the decoded call
+            Self::process_decoded_call(call)
+        }
+
+        #[pallet::weight(10_000)]
+        pub fn submit_signed_transaction(
+            origin: OriginFor<T>,
+            transaction: Vec<u8>, // Example payload
+        ) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+            // Validate and process the transaction here
             Ok(())
         }
     }
@@ -687,6 +765,8 @@ pub mod pallet {
         InvalidEventData,
         EventNotFound,
         HttpFetchingError,
+        InvalidPayload,
+        InvalidCall,
     }
 
     #[pallet::event]
