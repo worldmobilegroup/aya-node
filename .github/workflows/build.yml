@@ -35,7 +35,7 @@ jobs:
       - name: Login to GCP
         run: |-
           gcloud auth login --brief --cred-file="${{ steps.gcpauth.outputs.credentials_file_path }}"
-          gcloud auth configure-docker europe-docker.pkg.dev
+          gcloud auth configure-docker europe-west1-docker.pkg.dev
 
       - name: Build an image
         uses: docker/build-push-action@v4
