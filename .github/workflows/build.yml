@@ -44,4 +44,4 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            europe-docker.pkg.dev/wm-lz-artifacts/aya-node/aya-node:${{ github.sha }}
+            europe-west1-docker.pkg.dev/wm-lz-artifacts/aya-node/aya-node:${{ github.sha }}
