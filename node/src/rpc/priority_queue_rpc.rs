@@ -195,7 +195,32 @@ pub async fn run_server() -> anyhow::Result<SocketAddr> {
             )
         }
     })?;
+    module.register_async_method("remove_event", |params, pq| async move {
+        let event_id: u64 = params.one()?;
+        let mut pq = pq.lock().await;
+        let mut found = false;
 
+        let mut temp_queue = PriorityQueue::new();
+        while let Some((event, priority)) = pq.pop() {
+            if event.id == event_id {
+                found = true;
+                break;
+            } else {
+                temp_queue.push(event, priority);
+            }
+        }
+
+        // Restore the remaining events
+        while let Some((event, priority)) = temp_queue.pop() {
+            pq.push(event, priority);
+        }
+
+        if found {
+            Ok::<_, ErrorObjectOwned>("Event removed successfully".to_string())
+        } else {
+            Ok::<_, ErrorObjectOwned>("Event not found".to_string())
+        }
+    })?;
     let handle = server.start(module);
 
     // Block until the server is stopped

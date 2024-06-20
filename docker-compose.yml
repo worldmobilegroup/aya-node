@@ -15,6 +15,7 @@ services:
       --rpc-message-buffer-capacity-per-connection 50
       --validator
       --offchain-worker always
+      -- ldebug
     ports:
       - "30333:30333"
       - "9944:9944"
@@ -52,17 +53,17 @@ services:
       - "30334:30334"
       - "9946:9946"
   
-  scrolls:
-    image: sylvaincormier/chain-follower:v0.2
-    command: ["/usr/bin/aya_chain_follower", "daemon", "--config", "/app/daemon_conf.toml"]
-    environment:  
-      - RUST_LOG=info
-    volumes:
-      - ./daemon_conf.toml:/app/daemon_conf.toml  
-    ports:
-      - "9615:9615"
-    networks:
-      - aya_network
+  # scrolls:
+  #   image: sylvaincormier/chain-follower:v0.2
+  #   command: ["/usr/bin/aya_chain_follower", "daemon", "--config", "/app/daemon_conf.toml"]
+  #   environment:  
+  #     - RUST_LOG=info
+  #   volumes:
+  #     - ./daemon_conf.toml:/app/daemon_conf.toml  
+  #   ports:
+  #     - "9615:9615"
+  #   networks:
+  #     - aya_network
 
 networks:
   aya_network:

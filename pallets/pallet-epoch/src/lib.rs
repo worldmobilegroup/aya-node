@@ -3,70 +3,45 @@ extern crate alloc;
 #[cfg_attr(feature = "std", macro_use)]
 extern crate serde;
 extern crate sp_std;
-use alloc::string::ToString;
+
+use alloc::{string::ToString, vec::Vec};
+
 pub use pallet::*;
+
+use frame_support::{
+    dispatch::DispatchResult, pallet_prelude::*, storage::types::StorageMap,
+    unsigned::TransactionSource, weights::Weight,
+};
+use frame_system::{offchain::*, pallet_prelude::*};
+
+use sp_application_crypto::{AppCrypto, RuntimePublic};
+
+use sp_runtime::{
+    app_crypto::AppPublic,
+    codec::{Decode, Encode},
+    offchain::{self as rt_offchain},
+    traits::{Extrinsic as ExtrinsicT, ValidateUnsigned},
+    Deserialize, Serialize,
+};
+
+use scale_info::TypeInfo;
+use serde_json;
+use substrate_validator_set as validator_set;
+
+use pallet_session;
+
+use frame_support::pallet_prelude::{BoundedVec, Get, MaxEncodedLen};
+use sp_runtime::AccountId32;
+use sp_std::prelude::*;
+
 #[cfg(test)]
 mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+#[cfg(test)]
+mod mock; // Add this line to declare the mock module
 pub mod weights;
-
-use frame_support::weights::Weight;
-use frame_support::{dispatch::DispatchResult, pallet_prelude::*, storage::types::StorageMap};
-use frame_system::{offchain::*, pallet_prelude::*};
-use sp_application_crypto::AppCrypto;
-use sp_application_crypto::RuntimePublic;
-use sp_core::H256;
-use sp_std::result;
-
-use sp_runtime::codec::{Decode, Encode};
-
-use scale_info::prelude::format;
-
-use serde_json;
-use sp_consensus_aura::ed25519::AuthorityId;
-use sp_core::sr25519;
-use sp_core::Pair;
-use sp_core::Public;
-use sp_runtime::offchain::*;
-
-use frame_support::unsigned::TransactionSource;
-
-use sp_core::offchain::Duration;
-use sp_runtime::offchain::http::Request;
-use sp_runtime::traits::ValidateUnsigned;
-
-use sp_runtime::{
-    offchain as rt_offchain,
-    offchain::{
-        storage::StorageValueRef,
-        storage_lock::{BlockAndTime, StorageLock},
-    },
-};
-use sp_runtime::{Deserialize, Serialize};
-use sp_std::prelude::*;
-use substrate_validator_set as validator_set;
-
-use pallet_session;
-
-use scale_info::TypeInfo;
-use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::crypto::KeyTypeId;
-use sp_runtime::app_crypto::AppPublic;
-
-use alloc::string::String;
-use frame_support::pallet_prelude::{BoundedVec, Get, MaxEncodedLen};
-use sp_std::vec::Vec;
-
-use sp_runtime::traits::AccountIdConversion;
-
-use sp_runtime::AccountId32;
-
-use sp_runtime::traits::{IdentifyAccount, Verify};
-
-use sp_runtime::traits::{Extrinsic as ExtrinsicT, SignedExtension};
-use sp_runtime::MultiSigner;
 
 // Define the type for the maximum length
 pub struct MaxDataLength;
@@ -74,6 +49,22 @@ pub struct MaxDataLength;
 impl Get<u32> for MaxDataLength {
     fn get() -> u32 {
         1024 // Define your max length here
+    }
+}
+
+pub struct MaxEventsLength;
+
+impl Get<u32> for MaxEventsLength {
+    fn get() -> u32 {
+        100 // Define your max length here
+    }
+}
+
+pub struct MaxRemoveEventsLength;
+
+impl Get<u32> for MaxRemoveEventsLength {
+    fn get() -> u32 {
+        100 // Define your max length here
     }
 }
 
@@ -207,46 +198,6 @@ pub mod pallet {
             if let Err(e) = Self::fetch_and_process_events_from_queue() {
                 log::error!("Error fetching and processing events: {:?}", e);
             }
-
-            // Check if the validator is the leader
-            // Check if the validator is the leader
-            if Self::is_leader() {
-                log::info!(
-                "Validator is the leader. Attempting to create and submit an inclusion transaction"
-            );
-                log::info!(
-                    "Offchain worker is running at block number: {:?}",
-                    block_number
-                );
-
-                // Create and submit an inclusion transaction
-                if let Err(e) = Self::create_inclusion_transaction() {
-                    log::error!("Error creating inclusion transaction: {:?}", e);
-                }
-                
-                // Encode the event as the payload
-                let event = CustomEvent::new(
-                    1, 
-                    vec![], 
-                    0, 
-                    0, 
-                    0, 
-                    vec![], 
-                    0, 
-                    0, 
-                    0, 
-                    vec![], 
-                    vec![], 
-                    None
-                ).expect("Error creating new event");
-                
-                let payload = event.encode();
-
-                // Submit the encoded payload as an unsigned transaction
-                if let Err(e) = Self::submit_unsigned_transaction(payload) {
-                    log::error!("Error submitting unsigned transaction: {:?}", e);
-                }
-            }
         }
     }
 
@@ -326,11 +277,140 @@ pub mod pallet {
         T: frame_system::offchain::SendTransactionTypes<Call<T>>,
     {
         fn submit_unsigned_transaction(payload: Vec<u8>) -> Result<(), &'static str> {
+            log::info!(
+                "Creating Call::submit_encoded_payload with payload: {:?}",
+                payload
+            );
+
             let call = Call::submit_encoded_payload { payload };
+
+            log::info!("Submitting unsigned transaction with call: {:?}", call);
             frame_system::offchain::SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
                 call.into(),
             )
-            .map_err(|_| "Failed to submit unsigned transaction")
+            .map_err(|e| {
+                log::error!("Failed to submit unsigned transaction: {:?}", e);
+                "Failed to submit unsigned transaction"
+            })
+        }
+    }
+
+    impl<T: Config> Pallet<T> {
+        fn fetch_all_events() -> Result<BoundedVec<u8, MaxDataLength>, Error<T>> {
+            const HTTP_REMOTE_REQUEST: &str = "http://127.0.0.1:5555";
+            const HTTP_HEADER_USER_AGENT: &str = "SubstrateOffchainWorker";
+            const HTTP_HEADER_CONTENT_TYPE: &str = "Content-Type";
+            const CONTENT_TYPE_JSON: &str = "application/json";
+            const FETCH_TIMEOUT_PERIOD: u64 = 3000; // in milliseconds
+
+            // Create the JSON-RPC request payload
+            let json_payload = serde_json::json!({
+                "jsonrpc": "2.0",
+                "method": "list_all_events",
+                "params": [],
+                "id": 1
+            })
+            .to_string()
+            .into_bytes();
+            let json_payload_ref: Vec<&[u8]> = vec![&json_payload];
+
+            // Initiate an external HTTP POST request. This is using high-level wrappers from `sp_runtime`.
+            let request = rt_offchain::http::Request::post(HTTP_REMOTE_REQUEST, json_payload_ref);
+
+            // Keeping the offchain worker execution time reasonable, so limiting the call to be within 3s.
+            let timeout = sp_io::offchain::timestamp()
+                .add(rt_offchain::Duration::from_millis(FETCH_TIMEOUT_PERIOD));
+
+            // Set the request headers
+            let pending = request
+                .add_header("User-Agent", HTTP_HEADER_USER_AGENT)
+                .add_header(HTTP_HEADER_CONTENT_TYPE, CONTENT_TYPE_JSON)
+                .deadline(timeout) // Setting the timeout time
+                .send() // Sending the request out by the host
+                .map_err(|_| {
+                    log::error!("Failed to send HTTP request");
+                    <Error<T>>::HttpFetchingError
+                })?;
+
+            let response = pending
+                .try_wait(timeout)
+                .map_err(|_| {
+                    log::error!("Timeout while waiting for HTTP response");
+                    <Error<T>>::HttpFetchingError
+                })?
+                .map_err(|_| {
+                    log::error!("Failed to receive HTTP response");
+                    <Error<T>>::HttpFetchingError
+                })?;
+
+            log::info!("HTTP Response Code: {}", response.code);
+
+            let body = response.body().collect::<Vec<u8>>();
+            if response.code != 200 {
+                log::error!("Non-200 response code: {}", response.code);
+                return Err(<Error<T>>::HttpFetchingError);
+            }
+
+            match String::from_utf8(body.clone()) {
+                Ok(json_string) => {
+                    log::info!("HTTP Response Body: {}", json_string);
+                    // Check if the response format is valid JSON-RPC
+                    let parsed: Result<serde_json::Value, _> = serde_json::from_str(&json_string);
+                    match parsed {
+                        Ok(parsed_json) => {
+                            if parsed_json.get("jsonrpc").is_some()
+                                && parsed_json.get("result").is_some()
+                            {
+                                // Extract the actual events data from the JSON-RPC response
+                                if let Some(result) = parsed_json.get("result") {
+                                    if let Some(events_str) = result.as_str() {
+                                        match serde_json::from_str::<serde_json::Value>(events_str)
+                                        {
+                                            Ok(events_json) => {
+                                                let events_bytes =
+                                                    events_json.to_string().into_bytes();
+                                                // Convert the events bytes to BoundedVec
+                                                let bounded_body: BoundedVec<u8, MaxDataLength> =
+                                                    BoundedVec::try_from(events_bytes).map_err(
+                                                        |_| {
+                                                            log::error!(
+                                                                "Failed to convert to BoundedVec"
+                                                            );
+                                                            <Error<T>>::HttpFetchingError
+                                                        },
+                                                    )?;
+                                                return Ok(bounded_body);
+                                            }
+                                            Err(e) => {
+                                                log::error!("Failed to parse events JSON: {:?}", e);
+                                                return Err(<Error<T>>::InvalidResponseFormat);
+                                            }
+                                        }
+                                    } else {
+                                        log::error!("Result field is not a string");
+                                        return Err(<Error<T>>::InvalidResponseFormat);
+                                    }
+                                } else {
+                                    log::error!("No result field in JSON-RPC response");
+                                    return Err(<Error<T>>::InvalidResponseFormat);
+                                }
+                            } else {
+                                log::error!("Invalid JSON-RPC format");
+                                return Err(<Error<T>>::InvalidResponseFormat);
+                            }
+                        }
+                        Err(e) => {
+                            log::error!("Failed to parse JSON response: {:?}", e);
+                            return Err(<Error<T>>::InvalidResponseFormat);
+                        }
+                    }
+                }
+                Err(e) => {
+                    log::error!("Failed to parse response body as UTF-8: {:?}", e);
+                    log::info!("HTTP Response Body Bytes: {:?}", body);
+                    return Err(<Error<T>>::InvalidUtf8);
+                }
+            }
         }
     }
 
@@ -408,41 +488,162 @@ pub mod pallet {
             false
         }
 
-        fn fetch_all_events() -> Result<Vec<u8>, Error<T>> {
-            const HTTP_REMOTE_REQUEST: &str = "http://127.0.0.1:5555";
-            const HTTP_HEADER_USER_AGENT: &str = "SubstrateOffchainWorker";
-            const HTTP_HEADER_CONTENT_TYPE: &str = "Content-Type";
-            const CONTENT_TYPE_JSON: &str = "application/json";
-            const FETCH_TIMEOUT_PERIOD: u64 = 3000; // in milliseconds
+        // fn fetch_remote_events() -> Vec<CustomEvent> {
+        //     // Implement the logic to fetch remote events from other nodes.
+        //     // This might involve sending HTTP requests to other nodes and parsing the responses.
+        //     // For simplicity, let's assume we have the URLs of other nodes stored somewhere.
 
-            // Create the JSON-RPC request payload
-            let json_payload = serde_json::json!({
+        //     // let urls = vec!["http://node1:5555", "http://node2:5555"]; // Replace with actual URLs
+        //     let mut all_events = Vec::new();
+
+        //     // for url in urls {
+        //     //     let response = Self::fetch_data(&format!("{}/list_all_events", url))?;
+        //     //     let events: Vec<CustomEvent> =
+        //     //         serde_json::from_slice(&response).map_err(|_| <Error<T>>::HttpFetchingError)?;
+        //     //     all_events.extend(events);
+        //     // }
+
+        //     all_events
+        // }
+
+        // fn finalize_transactions(validated_events: Vec<CustomEvent>) {
+        //     // for event in validated_events {
+        //     //     Self::store_event_in_mempool(event);
+        //     // }
+        // }
+
+        // Step 4: Message Validation
+        fn validate_and_process_event(event: CustomEvent) -> Result<(), Error<T>> {
+            // Validate the event data
+            if event.timestamp == 0 || event.block_height == 0 {
+                return Err(Error::<T>::InvalidEventData);
+            }
+
+            if event.data.0.is_empty() {
+                return Err(Error::<T>::InvalidEventData);
+            }
+
+            // Process the event (e.g., store in mempool)
+            Self::store_event_in_mempool(event.clone()).map_err(|_| Error::<T>::StorageOverflow)?;
+
+            // Encode the event payload
+            let payload = event.encode();
+
+            // Submit the encoded payload as an unsigned transaction
+            log::info!(
+                "Submitting unsigned transaction with payload: {:?}",
+                payload
+            );
+            Self::submit_unsigned_transaction(payload).map_err(|e| {
+                log::error!("Error submitting unsigned transaction: {:?}", e);
+                Error::<T>::TransactionSubmissionError
+            })?;
+
+            Ok(())
+        }
+
+        // Step 2: Message Storage
+        fn store_event_in_mempool(event: CustomEvent) -> Result<(), &'static str> {
+            EventStorage::<T>::insert(event.id, event);
+            Ok(())
+        }
+
+        fn fetch_and_process_events_from_queue() -> Result<(), Error<T>> {
+            log::info!("Fetching all events from the queue");
+
+            // Fetch all events
+            let response = Self::fetch_all_events()?;
+            let bounded_events: BoundedVec<CustomEvent, MaxEventsLength> =
+                serde_json::from_slice(&response).map_err(|_| <Error<T>>::HttpFetchingError)?;
+
+            // Check if there are any events to process
+            if bounded_events.is_empty() {
+                log::info!("No events to process.");
+                return Ok(());
+            }
+
+            // Process all events if node is the leader
+            if Self::is_leader() {
+                log::info!("Node is the leader, processing events");
+
+                let mut events_to_remove: BoundedVec<u64, MaxRemoveEventsLength> =
+                    BoundedVec::default();
+
+                for event in bounded_events.iter() {
+                    log::info!("Validating and processing event: {:?}", event);
+
+                    // Validate and process the event
+                    Self::validate_and_process_event(event.clone())?;
+
+                    // Encode the event payload
+                    let payload = event.encode();
+
+                    // Submit the encoded payload as an unsigned transaction
+                    log::info!(
+                        "Submitting unsigned transaction with payload: {:?}",
+                        payload
+                    );
+                    if let Err(e) = Self::submit_unsigned_transaction(payload) {
+                        log::error!("Error submitting unsigned transaction: {:?}", e);
+                    } else {
+                        // If submission is successful, mark event for removal
+                        log::info!(
+                            "Transaction submitted successfully, marking event for removal: {:?}",
+                            event.id
+                        );
+                        events_to_remove
+                            .try_push(event.id)
+                            .map_err(|_| <Error<T>>::StorageOverflow)?;
+                    }
+                }
+
+                // Remove processed events from the storage
+                for event_id in events_to_remove {
+                    log::info!(
+                        "Removing processed event from priority queue: {:?}",
+                        event_id
+                    );
+                    Self::remove_event_from_priority_queue(event_id)?;
+                }
+            }
+
+            Ok(())
+        }
+
+        fn remove_event_from_priority_queue(event_id: u64) -> Result<(), Error<T>> {
+            // Call the HTTP method to remove the event from the priority queue
+            let remove_event_payload = serde_json::json!({
                 "jsonrpc": "2.0",
-                "method": "list_all_events",
-                "params": [],
+                "method": "remove_event",
+                "params": [event_id],
                 "id": 1
             })
             .to_string()
             .into_bytes();
-            let json_payload_ref: Vec<&[u8]> = vec![&json_payload];
+            let remove_event_payload_ref: Vec<&[u8]> = vec![&remove_event_payload];
 
-            // Initiate an external HTTP POST request. This is using high-level wrappers from `sp_runtime`.
-            let request = rt_offchain::http::Request::post(HTTP_REMOTE_REQUEST, json_payload_ref);
+            const HTTP_REMOTE_REQUEST: &str = "http://127.0.0.1:5555";
+            const HTTP_HEADER_USER_AGENT: &str = "SubstrateOffchainWorker";
+            const HTTP_HEADER_CONTENT_TYPE: &str = "Content-Type";
+            const CONTENT_TYPE_JSON: &str = "application/json";
+            const FETCH_TIMEOUT_PERIOD: u64 = 5000; // in milliseconds
 
-            // Keeping the offchain worker execution time reasonable, so limiting the call to be within 3s.
-            let timeout = sp_io::offchain::timestamp()
-                .add(rt_offchain::Duration::from_millis(FETCH_TIMEOUT_PERIOD));
+            let request =
+                rt_offchain::http::Request::post(HTTP_REMOTE_REQUEST, remove_event_payload_ref)
+                    .add_header("User-Agent", HTTP_HEADER_USER_AGENT)
+                    .add_header(HTTP_HEADER_CONTENT_TYPE, CONTENT_TYPE_JSON)
+                    .deadline(
+                        sp_io::offchain::timestamp()
+                            .add(rt_offchain::Duration::from_millis(FETCH_TIMEOUT_PERIOD)),
+                    )
+                    .send()
+                    .map_err(|_| <Error<T>>::HttpFetchingError)?;
 
-            // Set the request headers
-            let pending = request
-                .add_header("User-Agent", HTTP_HEADER_USER_AGENT)
-                .add_header(HTTP_HEADER_CONTENT_TYPE, CONTENT_TYPE_JSON)
-                .deadline(timeout) // Setting the timeout time
-                .send() // Sending the request out by the host
-                .map_err(|_| <Error<T>>::HttpFetchingError)?;
-
-            let response = pending
-                .try_wait(timeout)
+            let response = request
+                .try_wait(
+                    sp_io::offchain::timestamp()
+                        .add(rt_offchain::Duration::from_millis(FETCH_TIMEOUT_PERIOD)),
+                )
                 .map_err(|_| <Error<T>>::HttpFetchingError)?
                 .map_err(|_| <Error<T>>::HttpFetchingError)?;
 
@@ -459,70 +660,10 @@ pub mod pallet {
                 }
             }
 
-            if response.code != 200 {
-                return Err(<Error<T>>::HttpFetchingError);
-            }
-
-            // Next we fully read the response body and collect it to a vector of bytes.
-            Ok(body)
-        }
-
-        fn fetch_remote_events() -> Vec<CustomEvent> {
-            // Implement the logic to fetch remote events from other nodes.
-            // This might involve sending HTTP requests to other nodes and parsing the responses.
-            // For simplicity, let's assume we have the URLs of other nodes stored somewhere.
-
-            // let urls = vec!["http://node1:5555", "http://node2:5555"]; // Replace with actual URLs
-            let mut all_events = Vec::new();
-
-            // for url in urls {
-            //     let response = Self::fetch_data(&format!("{}/list_all_events", url))?;
-            //     let events: Vec<CustomEvent> =
-            //         serde_json::from_slice(&response).map_err(|_| <Error<T>>::HttpFetchingError)?;
-            //     all_events.extend(events);
+            //TODO: Implement the logic to remove the event from the priority queue
+            // if response.code != 200 {
+            //     return Err(<Error<T>>::HttpFetchingError);
             // }
-
-            all_events
-        }
-
-        fn finalize_transactions(validated_events: Vec<CustomEvent>) {
-            // for event in validated_events {
-            //     Self::store_event_in_mempool(event);
-            // }
-        }
-
-        // Step 4: Message Validation
-        fn validate_and_process_event(event: CustomEvent) -> Result<(), Error<T>> {
-            // Validate the event data
-            if event.timestamp == 0 || event.block_height == 0 {
-                return Err(Error::<T>::InvalidEventData);
-            }
-
-            if event.data.0.is_empty() {
-                return Err(Error::<T>::InvalidEventData);
-            }
-
-            // Process the event (e.g., store in mempool)
-            Self::store_event_in_mempool(event).map_err(|_| Error::<T>::StorageOverflow)?;
-
-            Ok(())
-        }
-
-        // Step 2: Message Storage
-        fn store_event_in_mempool(event: CustomEvent) -> Result<(), &'static str> {
-            EventStorage::<T>::insert(event.id, event);
-            Ok(())
-        }
-
-        // Step 3: Message Processing
-        fn fetch_and_process_events_from_queue() -> Result<(), Error<T>> {
-            let response = Self::fetch_all_events()?;
-            let events: Vec<(CustomEvent, i32)> =
-                serde_json::from_slice(&response).map_err(|_| <Error<T>>::HttpFetchingError)?;
-
-            for (event, _priority) in events {
-                Self::validate_and_process_event(event)?;
-            }
 
             Ok(())
         }
@@ -531,145 +672,145 @@ pub mod pallet {
             Some(EventStorage::<T>::get(event_id))
         }
 
-        fn request_event_from_peers(event_id: u64) -> Result<CustomEvent, Error<T>> {
-            let url = Self::construct_url(&format!("/api/events/{}", event_id));
-            let response = Self::fetch_data(&url).map_err(|_| <Error<T>>::HttpFetchingError)?;
+        // fn request_event_from_peers(event_id: u64) -> Result<CustomEvent, Error<T>> {
+        //     let url = Self::construct_url(&format!("/api/events/{}", event_id));
+        //     let response = Self::fetch_data(&url).map_err(|_| <Error<T>>::HttpFetchingError)?;
 
-            let event: CustomEvent =
-                serde_json::from_slice(&response).map_err(|_| <Error<T>>::HttpFetchingError)?;
+        //     let event: CustomEvent =
+        //         serde_json::from_slice(&response).map_err(|_| <Error<T>>::HttpFetchingError)?;
 
-            Ok(event)
-        }
+        //     Ok(event)
+        // }
 
-        fn construct_url(path: &str) -> String {
-            const DEFAULT_HOST: &str = "http://scrolls-1";
-            const DEFAULT_PORT: &str = "4123";
+        // fn construct_url(path: &str) -> String {
+        //     const DEFAULT_HOST: &str = "http://scrolls-1";
+        //     const DEFAULT_PORT: &str = "4123";
 
-            format!("{}:{}{}", DEFAULT_HOST, DEFAULT_PORT, path)
-        }
+        //     format!("{}:{}{}", DEFAULT_HOST, DEFAULT_PORT, path)
+        // }
 
-        fn fetch_and_process_data() -> Result<(), &'static str> {
-            // Example: Fetch data from multiple endpoints
-            let assets_url = Self::construct_url("/api/info/address/stake/assets/");
-            // Self::fetch_data(&assets_url)?;
+        // fn fetch_and_process_data() -> Result<(), &'static str> {
+        //     // Example: Fetch data from multiple endpoints
+        //     let assets_url = Self::construct_url("/api/info/address/stake/assets/");
+        //     // Self::fetch_data(&assets_url)?;
 
-            // let pools_url = Self::construct_url("/api/info/pools/1"); // example with page number
-            // Self::fetch_data(&pools_url)?;
+        //     // let pools_url = Self::construct_url("/api/info/pools/1"); // example with page number
+        //     // Self::fetch_data(&pools_url)?;
 
-            Ok(())
-        }
+        //     Ok(())
+        // }
 
-        fn process_stored_data(storage_key: &[u8]) -> Result<(), &'static str> {
-            if let Some(data) = sp_io::offchain::local_storage_get(
-                sp_runtime::offchain::StorageKind::PERSISTENT,
-                storage_key,
-            ) {
-                let assets: Vec<Asset> =
-                    serde_json::from_slice(&data).map_err(|_| "Failed to parse JSON data")?;
+        // fn process_stored_data(storage_key: &[u8]) -> Result<(), &'static str> {
+        //     if let Some(data) = sp_io::offchain::local_storage_get(
+        //         sp_runtime::offchain::StorageKind::PERSISTENT,
+        //         storage_key,
+        //     ) {
+        //         let assets: Vec<Asset> =
+        //             serde_json::from_slice(&data).map_err(|_| "Failed to parse JSON data")?;
 
-                for asset in assets {
-                    log::info!("Asset ID: {}, Quantity: {}", asset.asset_id, asset.quantity);
-                }
-            }
-            Ok(())
-        }
+        //         for asset in assets {
+        //             log::info!("Asset ID: {}, Quantity: {}", asset.asset_id, asset.quantity);
+        //         }
+        //     }
+        //     Ok(())
+        // }
 
-        fn fetch_data(url: &str) -> Result<Vec<u8>, &'static str> {
-            const FETCH_TIMEOUT_PERIOD: u64 = 3000; // in milliseconds
-            let request = rt_offchain::http::Request::get(url);
+        // fn fetch_data(url: &str) -> Result<Vec<u8>, &'static str> {
+        //     const FETCH_TIMEOUT_PERIOD: u64 = 3000; // in milliseconds
+        //     let request = rt_offchain::http::Request::get(url);
 
-            let timeout = sp_io::offchain::timestamp()
-                .add(rt_offchain::Duration::from_millis(FETCH_TIMEOUT_PERIOD));
+        //     let timeout = sp_io::offchain::timestamp()
+        //         .add(rt_offchain::Duration::from_millis(FETCH_TIMEOUT_PERIOD));
 
-            let pending = request
-                .deadline(timeout)
-                .send()
-                .map_err(|_| "Failed to send request")?;
+        //     let pending = request
+        //         .deadline(timeout)
+        //         .send()
+        //         .map_err(|_| "Failed to send request")?;
 
-            let response = pending
-                .try_wait(timeout)
-                .map_err(|_| "Timeout while waiting for response")?
-                .map_err(|_| "Failed to receive response")?;
+        //     let response = pending
+        //         .try_wait(timeout)
+        //         .map_err(|_| "Timeout while waiting for response")?
+        //         .map_err(|_| "Failed to receive response")?;
 
-            if response.code != 200 {
-                log::error!("Unexpected status code: {}", response.code);
-                return Err("Non-200 status code returned from API");
-            }
+        //     if response.code != 200 {
+        //         log::error!("Unexpected status code: {}", response.code);
+        //         return Err("Non-200 status code returned from API");
+        //     }
 
-            let body = response.body().collect::<Vec<u8>>();
-            log::info!("Response body: {:?}", body);
+        //     let body = response.body().collect::<Vec<u8>>();
+        //     log::info!("Response body: {:?}", body);
 
-            Ok(body)
-        }
+        //     Ok(body)
+        // }
 
-        fn fetch_address_stake_assets() -> Result<(), &'static str> {
-            let url = Self::construct_url("/api/info/address/stake/assets/");
-            // let data = Self::fetch_data(&url)?;
-            // process_address_stake_assets(data)
-            Ok(())
-        }
+        // fn fetch_address_stake_assets() -> Result<(), &'static str> {
+        //     let url = Self::construct_url("/api/info/address/stake/assets/");
+        //     // let data = Self::fetch_data(&url)?;
+        //     // process_address_stake_assets(data)
+        //     Ok(())
+        // }
 
-        fn fetch_addresses_assets() -> Result<(), &'static str> {
-            let url = Self::construct_url("/api/info/addresses/assets/");
-            // let data = Self::fetch_data(&url)?;
-            // save to local storage queue
-            Ok(())
-        }
+        // fn fetch_addresses_assets() -> Result<(), &'static str> {
+        //     let url = Self::construct_url("/api/info/addresses/assets/");
+        //     // let data = Self::fetch_data(&url)?;
+        //     // save to local storage queue
+        //     Ok(())
+        // }
 
-        fn fetch_pools(page: u32) -> Result<(), &'static str> {
-            let url = Self::construct_url(&format!("/api/info/pools/{}", page));
-            // let data = Self::fetch_data(&url)?;
-            // save to local storage queue
-            Ok(())
-        }
+        // fn fetch_pools(page: u32) -> Result<(), &'static str> {
+        //     let url = Self::construct_url(&format!("/api/info/pools/{}", page));
+        //     // let data = Self::fetch_data(&url)?;
+        //     // save to local storage queue
+        //     Ok(())
+        // }
 
-        fn fetch_token_nft_status() -> Result<(), &'static str> {
-            let url = Self::construct_url("/api/info/tokens/isNft/");
-            // let data = Self::fetch_data(&url)?;
-            // save to local storage queue
-            Ok(())
-        }
+        // fn fetch_token_nft_status() -> Result<(), &'static str> {
+        //     let url = Self::construct_url("/api/info/tokens/isNft/");
+        //     // let data = Self::fetch_data(&url)?;
+        //     // save to local storage queue
+        //     Ok(())
+        // }
 
-        fn fetch_epoch_stake_amount(stake_addr: &str, epoch: u32) -> Result<(), &'static str> {
-            let url = Self::construct_url(&format!(
-                "/api/info/epoch/stake/amount/{}/{}",
-                stake_addr, epoch
-            ));
-            // let data = Self::fetch_data(&url)?;
-            // save to local storage queue
-            Ok(())
-        }
+        // fn fetch_epoch_stake_amount(stake_addr: &str, epoch: u32) -> Result<(), &'static str> {
+        //     let url = Self::construct_url(&format!(
+        //         "/api/info/epoch/stake/amount/{}/{}",
+        //         stake_addr, epoch
+        //     ));
+        //     // let data = Self::fetch_data(&url)?;
+        //     // save to local storage queue
+        //     Ok(())
+        // }
 
-        fn fetch_reward_amount(stake_addr: &str) -> Result<(), &'static str> {
-            let url = Self::construct_url(&format!("/api/info/reward/amount/{}", stake_addr));
-            // let data = Self::fetch_data(&url)?;
-            // Process data as needed
-            Ok(())
-        }
+        // fn fetch_reward_amount(stake_addr: &str) -> Result<(), &'static str> {
+        //     let url = Self::construct_url(&format!("/api/info/reward/amount/{}", stake_addr));
+        //     // let data = Self::fetch_data(&url)?;
+        //     // Process data as needed
+        //     Ok(())
+        // }
 
-        fn fetch_epoch_changes(from_epoch: u32, to_epoch: u32) -> Result<(), &'static str> {
-            let url = Self::construct_url(&format!(
-                "/api/aya/epoch/change/from/{}/{}",
-                from_epoch, to_epoch
-            ));
-            // let data = Self::fetch_data(&url)?;
-            // save to local storage queue
-            Ok(())
-        }
+        // fn fetch_epoch_changes(from_epoch: u32, to_epoch: u32) -> Result<(), &'static str> {
+        //     let url = Self::construct_url(&format!(
+        //         "/api/aya/epoch/change/from/{}/{}",
+        //         from_epoch, to_epoch
+        //     ));
+        //     // let data = Self::fetch_data(&url)?;
+        //     // save to local storage queue
+        //     Ok(())
+        // }
 
-        fn fetch_latest_epoch_change() -> Result<(), &'static str> {
-            let url = Self::construct_url("/api/aya/epoch/change/latest");
-            // let data = Self::fetch_data(&url)?;
-            // save to local storage queue
-            Ok(())
-        }
+        // fn fetch_latest_epoch_change() -> Result<(), &'static str> {
+        //     let url = Self::construct_url("/api/aya/epoch/change/latest");
+        //     // let data = Self::fetch_data(&url)?;
+        //     // save to local storage queue
+        //     Ok(())
+        // }
 
-        fn fetch_current_epoch() -> Result<(), &'static str> {
-            let url = Self::construct_url("/api/aya/epoch/current/");
-            // let data = Self::fetch_data(&url)?;
-            // save to local storage queue
-            Ok(())
-        }
+        // fn fetch_current_epoch() -> Result<(), &'static str> {
+        //     let url = Self::construct_url("/api/aya/epoch/current/");
+        //     // let data = Self::fetch_data(&url)?;
+        //     // save to local storage queue
+        //     Ok(())
+        // }
     }
 
     use scale_info::prelude::string::String;
@@ -712,6 +853,7 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #[pallet::call_index(0)]
         #[pallet::weight(10_000)]
         pub fn manual_fetch(origin: OriginFor<T>) -> DispatchResult {
             ensure_signed(origin)?;
@@ -728,33 +870,30 @@ pub mod pallet {
                 }
             }
         }
+        #[pallet::call_index(1)]
         #[pallet::weight(10_000)]
         pub fn submit_empty_transaction(origin: OriginFor<T>, nonce: u64) -> DispatchResult {
+            Self::deposit_event(Event::DataFetchedSuccessfully);
             let _who = ensure_none(origin)?;
             // You can add logic here that makes use of the nonce if needed
             Ok(())
         }
-
+        #[pallet::call_index(2)]
         #[pallet::weight(10_000)]
         pub fn submit_encoded_payload(origin: OriginFor<T>, payload: Vec<u8>) -> DispatchResult {
+            log::info!("submit_encoded_payload called with payload: {:?}", payload);
+
             let _who = ensure_none(origin)?;
 
             // Decode the payload
-            let call: Call<T> =
-                Decode::decode(&mut &payload[..]).map_err(|_| Error::<T>::InvalidPayload)?;
+            let call: Call<T> = Decode::decode(&mut &payload[..]).map_err(|e| {
+                log::error!("Failed to decode payload: {:?}", e);
+                Error::<T>::InvalidPayload
+            })?;
 
             // Process the decoded call
+            log::info!("Processing decoded call: {:?}", call);
             Self::process_decoded_call(call)
-        }
-
-        #[pallet::weight(10_000)]
-        pub fn submit_signed_transaction(
-            origin: OriginFor<T>,
-            transaction: Vec<u8>, // Example payload
-        ) -> DispatchResult {
-            let who = ensure_signed(origin)?;
-            // Validate and process the transaction here
-            Ok(())
         }
     }
 
@@ -767,6 +906,9 @@ pub mod pallet {
         HttpFetchingError,
         InvalidPayload,
         InvalidCall,
+        InvalidResponseFormat,
+        InvalidUtf8,
+        TransactionSubmissionError, // New error variant
     }
 
     #[pallet::event]

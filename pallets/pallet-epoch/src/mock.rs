@@ -1,58 +1,28 @@
-use crate as pallet_template;
-use frame_support::{
-	derive_impl,
-	traits::{ConstU16, ConstU64},
-};
+use crate as pallet_epoch;
+use frame_support::parameter_types;
+use frame_system as system;
 use sp_core::H256;
 use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage,
+    testing::Header,
+    traits::{BlakeTwo256, IdentityLookup},
+    BuildStorage,
 };
 
-type Block = frame_system::mocking::MockBlock<Test>;
+use frame_support::construct_runtime;
+use sp_io::TestExternalities;
 
-// Configure a mock runtime to test the pallet.
-frame_support::construct_runtime!(
-	pub enum Test
-	{
-		System: frame_system,
-		TemplateModule: pallet_template,
-	}
-);
+type UncheckedExtrinsic<Runtime> = frame_system::mocking::MockUncheckedExtrinsic<Runtime>;
+type Block<Runtime> = frame_system::mocking::MockBlock<Runtime>;
+type RuntimeOrigin<Test> = frame_system::pallet::Origin<Test>;
+type RuntimeCall<Test> = frame_system::pallet::Call<Test>;
+type RuntimeEvent<Test> = frame_system::pallet::Event<Test>;
 
-#[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig)]
-impl frame_system::Config for Test {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type Nonce = u64;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type Block = Block;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ConstU16<42>;
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
+parameter_types! {
+    pub const BlockHashCount: u64 = 250;
+    pub const SS58Prefix: u8 = 42;
 }
 
-impl pallet_template::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
-}
-
-// Build genesis storage according to the mock runtime.
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
-}
+// pub fn new_test_ext() -> sp_io::TestExternalities {
+//     let t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+//     t.into()
+// }

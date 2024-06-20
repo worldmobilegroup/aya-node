@@ -1,71 +1,71 @@
-use crate::{mock::*, Error, Event, Something};
-use frame_support::{assert_noop, assert_ok};
-
-#[test]
-fn it_works_for_default_value() {
-    new_test_ext().execute_with(|| {
-        // Go past genesis block so events get deposited
-        System::set_block_number(1);
-        // Dispatch a signed extrinsic.
-        assert_ok!(TemplateModule::do_something(RuntimeOrigin::signed(1), 42));
-        // Read pallet storage and assert an expected result.
-        assert_eq!(Something::<Test>::get(), Some(42));
-        // Assert that the correct event was deposited
-        System::assert_last_event(
-            Event::SomethingStored {
-                something: 42,
-                who: 1,
-            }
-            .into(),
-        );
-    });
-}
-
-#[test]
-fn correct_error_for_none_value() {
-    new_test_ext().execute_with(|| {
-        // Ensure the expected error is thrown when no value is present.
-        assert_noop!(
-            TemplateModule::cause_error(RuntimeOrigin::signed(1)),
-            Error::<Test>::NoneValue
-        );
-    });
-}
+// use crate::mock::{new_test_ext, Test}; // Import the mock runtime
+// use crate::pallet::{CustomEvent, EventStorage};
+// use frame_support::assert_ok;
+// use sp_io::TestExternalities;
+// use sp_runtime::traits::Hash;
 
 // #[cfg(test)]
 // mod tests {
 //     use super::*;
 //     use sp_core::offchain::{
-//         testing::{self, OffchainState, OffchainWorkerExt, TestOffchainExt},
+//         testing::{self, OffchainState, TestOffchainExt},
 //         OffchainDbExt,
 //     };
-//     use sp_io::TestExternalities;
+//     use crate::rt_offchain::OffchainWorkerExt;
 
+//     // Helper function to set up the test environment
 //     fn setup_ext() -> TestExternalities {
 //         let (offchain, _) = testing::TestOffchainExt::new();
 //         let mut ext = TestExternalities::default();
-//         ext.register_extension(OffchainWorkerExt(offchain));
+//         ext.register_extension(OffchainWorkerExt(Box::new(offchain)));
 //         ext
 //     }
 
 //     #[test]
 //     fn test_store_event_data() {
-//         let mut ext = setup_ext();
-//         ext.execute_with(|| {
-//             // Assuming submit_cardano_event is a function callable here that triggers offchain storage logic
-//             let event = Event { data: "Test event data".to_string() };
-//             let event_str = serde_json::to_string(&event).unwrap();
-//             submit_cardano_event(event_str).unwrap();
+//         new_test_ext().execute_with(|| {
+//             let event = CustomEvent::new(
+//                 1,
+//                 vec![1, 2, 3],
+//                 1625068800,
+//                 100,
+//                 1,
+//                 vec![4, 5, 6],
+//                 1,
+//                 2,
+//                 3,
+//                 vec![7, 8, 9],
+//                 vec![10, 11, 12],
+//                 None,
+//             ).expect("Failed to create event");
 
-//             let storage_key = sp_io::hashing::blake2_128(b"cardano_events");
+//             assert_ok!(Pallet::<Test>::store_event_in_mempool(event.clone()));
+//             let stored_event = EventStorage::<Test>::get(event.id);
+//             assert_eq!(stored_event, event);
+//         });
+//     }
 
-//             assert!(
-//                 sp_io::offchain::local_storage_get(
-//                     sp_runtime::offchain::StorageKind::PERSISTENT,
-//                     &storage_key
-//                 ).is_some(),
-//                 "Event data should be stored"
-//             );
+//     #[test]
+//     fn test_offchain_worker_process() {
+//         new_test_ext().execute_with(|| {
+//             let event = CustomEvent::new(
+//                 1,
+//                 vec![1, 2, 3],
+//                 1625068800,
+//                 100,
+//                 1,
+//                 vec![4, 5, 6],
+//                 1,
+//                 2,
+//                 3,
+//                 vec![7, 8, 9],
+//                 vec![10, 11, 12],
+//                 None,
+//             ).expect("Failed to create event");
+
+//             assert_ok!(Pallet::<Test>::store_event_in_mempool(event.clone()));
+//             Pallet::<Test>::offchain_worker(1);
+//             assert!(EventStorage::<Test>::get(event.id).is_none());
 //         });
 //     }
 // }
