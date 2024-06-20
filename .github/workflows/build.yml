@@ -1,0 +1,44 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - 'main'
+      - 'lukas/add-docker-build'
+
+jobs:
+  docker-build-push:
+    name: Docker build and push
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v0'
+
+      - name: Authenticate to Google Cloud
+        id: gcpauth
+        uses: google-github-actions/auth@v0
+        with:
+          create_credentials_file: 'true'
+          workload_identity_provider: 'projects/37988816641/locations/global/workloadIdentityPools/gcsc-federation/providers/gcsc-github-oidc'
+          service_account: 'wi-aya-node@wm-lz-artifacts.iam.gserviceaccount.com'
+
+      - name: Login to GCP
+        run: |-
+          gcloud auth login --brief --cred-file="${{ steps.gcpauth.outputs.credentials_file_path }}"
+          gcloud auth configure-docker europe-docker.pkg.dev
+
+      - name: Build an image
+        uses: docker/build-push-action@v4
+        with:
+          platforms: linux/amd64
+          push: false
+          tags: |
+            europe-docker.pkg.dev/wm-lz-artifacts/aya-node/aya-node:${{ github.sha }}
