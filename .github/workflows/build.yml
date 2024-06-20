@@ -2,9 +2,10 @@ name: Build
 
 on:
   push:
-    branches:
-      - 'main'
-      - 'lukas/add-docker-build'
+    # branches-ignore:
+    #   - '**'
+    tags:
+      - devnet-v*.*.*
 
 jobs:
   docker-build-push:
@@ -38,6 +39,7 @@ jobs:
       - name: Build an image
         uses: docker/build-push-action@v4
         with:
+          file: ./Dockerfile.build
           platforms: linux/amd64
           push: false
           tags: |
