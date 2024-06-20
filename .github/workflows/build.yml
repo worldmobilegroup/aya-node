@@ -42,6 +42,6 @@ jobs:
         with:
           file: ./Dockerfile.build
           platforms: linux/amd64
-          push: false
+          push: true
           tags: |
             europe-docker.pkg.dev/wm-lz-artifacts/aya-node/aya-node:${{ github.sha }}
