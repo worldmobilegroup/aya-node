@@ -194,9 +194,9 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn offchain_worker(block_number: BlockNumberFor<T>) {
-            // Step 3: Message Processing
-            if let Err(e) = Self::fetch_and_process_events_from_queue() {
-                log::error!("Error fetching and processing events: {:?}", e);
+            // Create and submit an inclusion transaction
+            if let Err(e) = Self::create_inclusion_transaction() {
+                log::error!("Error creating inclusion transaction: {:?}", e);
             }
         }
     }
@@ -217,7 +217,7 @@ pub mod pallet {
             }
 
             match call {
-                Call::submit_empty_transaction { nonce } => {
+                Call::submit_empty_transaction { nonce, payload } => {
                     log::info!("Validating submit_empty_transaction with nonce: {}", nonce);
                     // Perform your validation logic here
                     ValidTransaction::with_tag_prefix("InclusionTransaction")
@@ -249,27 +249,35 @@ pub mod pallet {
         T: frame_system::offchain::SendTransactionTypes<Call<T>>,
     {
         fn create_inclusion_transaction() -> Result<(), &'static str> {
-            log::info!("Creating an empty inclusion transaction");
-
+            
+            
+            
+            log::info!("Creating an inclusion transaction with a stub event payload");
+        
             // Create a unique nonce
             let nonce: u64 = sp_io::offchain::timestamp().unix_millis();
+        
+            
+            // Stub event payload
+            let stub_event_data = vec![];  // Use actual payload here
+        
 
-            // Create an empty inclusion transaction with nonce
-            let call = Call::<T>::submit_empty_transaction { nonce };
-
+            
+            // Create the call with the nonce and payload
+            let call = Call::<T>::submit_empty_transaction { nonce, payload: stub_event_data };
+        
             // Submit the transaction
-            frame_system::offchain::SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
-                call.into(),
-            )
-            .map_err(|_| {
-                log::error!("Failed to submit unsigned transaction");
-                "Failed to submit transaction"
-            })?;
-
-            log::info!("Unsigned transaction submitted successfully");
-
+            match frame_system::offchain::SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()) {
+                Ok(_) => log::info!("Stub event transaction submitted successfully"),
+                Err(e) => log::error!("Error submitting stub event transaction: {:?}", e),
+            }
+        
             Ok(())
         }
+        
+        
+        
+        
     }
 
     impl<T: Config> Pallet<T>
@@ -302,7 +310,7 @@ pub mod pallet {
             const HTTP_HEADER_CONTENT_TYPE: &str = "Content-Type";
             const CONTENT_TYPE_JSON: &str = "application/json";
             const FETCH_TIMEOUT_PERIOD: u64 = 3000; // in milliseconds
-
+        
             // Create the JSON-RPC request payload
             let json_payload = serde_json::json!({
                 "jsonrpc": "2.0",
@@ -312,106 +320,57 @@ pub mod pallet {
             })
             .to_string()
             .into_bytes();
-            let json_payload_ref: Vec<&[u8]> = vec![&json_payload];
-
-            // Initiate an external HTTP POST request. This is using high-level wrappers from `sp_runtime`.
-            let request = rt_offchain::http::Request::post(HTTP_REMOTE_REQUEST, json_payload_ref);
-
-            // Keeping the offchain worker execution time reasonable, so limiting the call to be within 3s.
-            let timeout = sp_io::offchain::timestamp()
-                .add(rt_offchain::Duration::from_millis(FETCH_TIMEOUT_PERIOD));
-
-            // Set the request headers
-            let pending = request
+        
+            // Initiate an external HTTP POST request
+            let request = rt_offchain::http::Request::post(HTTP_REMOTE_REQUEST, vec![&json_payload])
                 .add_header("User-Agent", HTTP_HEADER_USER_AGENT)
                 .add_header(HTTP_HEADER_CONTENT_TYPE, CONTENT_TYPE_JSON)
-                .deadline(timeout) // Setting the timeout time
-                .send() // Sending the request out by the host
-                .map_err(|_| {
-                    log::error!("Failed to send HTTP request");
-                    <Error<T>>::HttpFetchingError
-                })?;
-
-            let response = pending
-                .try_wait(timeout)
-                .map_err(|_| {
-                    log::error!("Timeout while waiting for HTTP response");
-                    <Error<T>>::HttpFetchingError
-                })?
-                .map_err(|_| {
-                    log::error!("Failed to receive HTTP response");
-                    <Error<T>>::HttpFetchingError
-                })?;
-
-            log::info!("HTTP Response Code: {}", response.code);
-
-            let body = response.body().collect::<Vec<u8>>();
+                .deadline(sp_io::offchain::timestamp().add(rt_offchain::Duration::from_millis(FETCH_TIMEOUT_PERIOD)))
+                .send()
+                .map_err(|_| <Error<T>>::HttpFetchingError)?;
+        
+            let response = request
+                .try_wait(sp_io::offchain::timestamp().add(rt_offchain::Duration::from_millis(FETCH_TIMEOUT_PERIOD)))
+                .map_err(|_| <Error<T>>::HttpFetchingError)?
+                .map_err(|_| <Error<T>>::HttpFetchingError)?;
+        
             if response.code != 200 {
                 log::error!("Non-200 response code: {}", response.code);
                 return Err(<Error<T>>::HttpFetchingError);
             }
-
-            match String::from_utf8(body.clone()) {
-                Ok(json_string) => {
-                    log::info!("HTTP Response Body: {}", json_string);
-                    // Check if the response format is valid JSON-RPC
-                    let parsed: Result<serde_json::Value, _> = serde_json::from_str(&json_string);
-                    match parsed {
-                        Ok(parsed_json) => {
-                            if parsed_json.get("jsonrpc").is_some()
-                                && parsed_json.get("result").is_some()
-                            {
-                                // Extract the actual events data from the JSON-RPC response
-                                if let Some(result) = parsed_json.get("result") {
-                                    if let Some(events_str) = result.as_str() {
-                                        match serde_json::from_str::<serde_json::Value>(events_str)
-                                        {
-                                            Ok(events_json) => {
-                                                let events_bytes =
-                                                    events_json.to_string().into_bytes();
-                                                // Convert the events bytes to BoundedVec
-                                                let bounded_body: BoundedVec<u8, MaxDataLength> =
-                                                    BoundedVec::try_from(events_bytes).map_err(
-                                                        |_| {
-                                                            log::error!(
-                                                                "Failed to convert to BoundedVec"
-                                                            );
-                                                            <Error<T>>::HttpFetchingError
-                                                        },
-                                                    )?;
-                                                return Ok(bounded_body);
-                                            }
-                                            Err(e) => {
-                                                log::error!("Failed to parse events JSON: {:?}", e);
-                                                return Err(<Error<T>>::InvalidResponseFormat);
-                                            }
-                                        }
-                                    } else {
-                                        log::error!("Result field is not a string");
-                                        return Err(<Error<T>>::InvalidResponseFormat);
-                                    }
-                                } else {
-                                    log::error!("No result field in JSON-RPC response");
-                                    return Err(<Error<T>>::InvalidResponseFormat);
-                                }
-                            } else {
-                                log::error!("Invalid JSON-RPC format");
-                                return Err(<Error<T>>::InvalidResponseFormat);
-                            }
-                        }
-                        Err(e) => {
-                            log::error!("Failed to parse JSON response: {:?}", e);
-                            return Err(<Error<T>>::InvalidResponseFormat);
-                        }
-                    }
-                }
-                Err(e) => {
-                    log::error!("Failed to parse response body as UTF-8: {:?}", e);
-                    log::info!("HTTP Response Body Bytes: {:?}", body);
-                    return Err(<Error<T>>::InvalidUtf8);
-                }
+        
+            let body = response.body().collect::<Vec<u8>>();
+            let json_string = String::from_utf8(body.clone()).map_err(|e| {
+                log::error!("Failed to parse response body as UTF-8: {:?}", e);
+                <Error<T>>::InvalidUtf8
+            })?;
+        
+            log::info!("HTTP Response Body: {}", json_string);
+        
+            let parsed_json: serde_json::Value = serde_json::from_str(&json_string).map_err(|e| {
+                log::error!("Failed to parse JSON response: {:?}", e);
+                <Error<T>>::InvalidResponseFormat
+            })?;
+        
+            if let Some(events_str) = parsed_json.get("result").and_then(|result| result.as_str()) {
+                let events_json: serde_json::Value = serde_json::from_str(events_str).map_err(|e| {
+                    log::error!("Failed to parse events JSON: {:?}", e);
+                    <Error<T>>::InvalidResponseFormat
+                })?;
+        
+                let events_bytes = events_json.to_string().into_bytes();
+                let bounded_body: BoundedVec<u8, MaxDataLength> = BoundedVec::try_from(events_bytes).map_err(|_| {
+                    log::error!("Failed to convert to BoundedVec");
+                    <Error<T>>::HttpFetchingError
+                })?;
+        
+                return Ok(bounded_body);
             }
+        
+            log::error!("Invalid JSON-RPC format");
+            Err(<Error<T>>::InvalidResponseFormat)
         }
+        
     }
 
     impl<T: Config> Pallet<T>
@@ -583,17 +542,33 @@ pub mod pallet {
                         "Submitting unsigned transaction with payload: {:?}",
                         payload
                     );
-                    if let Err(e) = Self::submit_unsigned_transaction(payload) {
-                        log::error!("Error submitting unsigned transaction: {:?}", e);
-                    } else {
-                        // If submission is successful, mark event for removal
-                        log::info!(
-                            "Transaction submitted successfully, marking event for removal: {:?}",
-                            event.id
-                        );
-                        events_to_remove
-                            .try_push(event.id)
-                            .map_err(|_| <Error<T>>::StorageOverflow)?;
+
+                    // Decode the payload to create a call
+                    let call = match Call::<T>::decode(&mut &payload[..]) {
+                        Ok(call) => call,
+                        Err(_) => {
+                            log::error!("Failed to decode the provided transaction payload");
+                            continue;
+                        }
+                    };
+
+                    // Submit the transaction
+                    match frame_system::offchain::SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
+                        call.into(),
+                    ) {
+                        Ok(_) => {
+                            // If submission is successful, mark event for removal
+                            log::info!(
+                                "Transaction submitted successfully, marking event for removal: {:?}",
+                                event.id
+                            );
+                            events_to_remove
+                                .try_push(event.id)
+                                .map_err(|_| <Error<T>>::StorageOverflow)?;
+                        },
+                        Err(e) => {
+                            log::error!("Error submitting unsigned transaction: {:?}", e);
+                        }
                     }
                 }
 
@@ -841,7 +816,7 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         fn process_decoded_call(call: Call<T>) -> DispatchResult {
             match call {
-                Call::submit_empty_transaction { nonce } => {
+                Call::submit_empty_transaction { nonce, payload } => {
                     log::info!("Processing decoded call with nonce: {}", nonce);
                     // Add your processing logic here
                     Ok(())
@@ -872,10 +847,10 @@ pub mod pallet {
         }
         #[pallet::call_index(1)]
         #[pallet::weight(10_000)]
-        pub fn submit_empty_transaction(origin: OriginFor<T>, nonce: u64) -> DispatchResult {
-            Self::deposit_event(Event::DataFetchedSuccessfully);
-            let _who = ensure_none(origin)?;
-            // You can add logic here that makes use of the nonce if needed
+        pub fn submit_empty_transaction(origin: OriginFor<T>, nonce: u64, payload: Vec<u8>) -> DispatchResult {
+            let _who = ensure_signed(origin)?;
+            log::info!("Received payload: {:?}", payload);
+            // Process the payload as needed
             Ok(())
         }
         #[pallet::call_index(2)]
