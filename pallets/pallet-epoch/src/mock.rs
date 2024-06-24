@@ -8,16 +8,26 @@ use sp_runtime::{
 use sp_application_crypto::sr25519;
 use frame_support::weights::Weight;
 use frame_system::{self as system, Config as OtherSystemConfig};  // Alias the Config trait
+use sp_runtime::Perbill;
+use frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND;
 
 type UncheckedExtrinsic<Test> = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block<Test> = frame_system::mocking::MockBlock<Test>;
-// type RuntimeOrigin = <RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin;
+
+
+
+const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 
 parameter_types! {
     pub const BlockHashCount: u32 = 250;
-    pub BlockWeights: frame_system::limits::BlockWeights = frame_system::limits::BlockWeights::simple_max(Weight::from_parts(1024, 0));
+    pub BlockWeights: frame_system::limits::BlockWeights = frame_system::limits::BlockWeights
+        ::with_sensible_defaults(
+            Weight::from_parts(2 * WEIGHT_REF_TIME_PER_SECOND, u64::MAX), // 2 seconds of compute
+            NORMAL_DISPATCH_RATIO,
+        );
     pub const SS58Prefix: u8 = 42;
 }
+
 
 frame_support::construct_runtime!(
     pub enum Runtime {
@@ -56,8 +66,21 @@ impl frame_system::Config for Runtime {
     type PostInherents = ();
     type PostTransactions = ();
 }
+pub fn new_test_ext() -> sp_io::TestExternalities {
+    frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap().into()
+}
 
+#[cfg(test)]
+mod tests {
+    use super::*;
 
+    #[test]
+    fn test_genesis_config_builds() {
+        new_test_ext().execute_with(|| {
+            assert!(System::block_number() == 0);
+        });
+    }
+}
 
 
 // parameter_types! {
