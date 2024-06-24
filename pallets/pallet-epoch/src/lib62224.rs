@@ -262,12 +262,14 @@ pub mod pallet {
     where
         T: frame_system::offchain::SendTransactionTypes<Call<T>>,
     {
+        
+
         fn create_inclusion_transaction() -> Result<(), &'static str> {
             log::info!("Creating an inclusion transaction with a stub event payload");
-
+        
             // Create a unique nonce
             let nonce: u64 = sp_io::offchain::timestamp().unix_millis();
-
+        
             // Fetch the latest event from the queue
             let latest_event = {
                 // Fetch all events
@@ -275,50 +277,43 @@ pub mod pallet {
                     log::error!("Error fetching events: {:?}", e);
                     "HttpFetchingError"
                 })?;
-
+        
                 // Check if there are any events to process
                 if events.is_empty() {
                     log::info!("No events to process.");
                     return Err("No events in the queue");
                 }
-
+        
                 // Get the latest event
                 events.last().ok_or("No events in the queue")?.clone()
             };
             log::info!("Latest event before encoding: {:?}", latest_event.clone());
-
-            // Encode the latest event payload
-            let payload_vec = latest_event.encode();
-
-            /////
-            // Simulate a larger payload with detailed event information
-            let mut stub_event_data = Vec::new();
-            for i in 0..100 {
-                stub_event_data.push(format!(
-                    "{{\"event_id\":{},\"event_data\":\"data_{}\"}}",
-                    i, i
-                ));
-            }
-            let payload_vec = stub_event_data.encode();
-            log::info!("Encoded payload: {:?}", payload_vec);
-
+        
+            // Create a larger payload by adding mock data
+            let mut stub_event_data = latest_event.encode();
+            let additional_data = vec![0u8; 1024]; // 1 KB of additional data
+            stub_event_data.extend(additional_data);
+        
             log::info!("Encoded payload: {:?}", stub_event_data);
-
+            log::info!("Payload size: {}", stub_event_data.len());
+        
             // Create the call with the nonce and payload
             let call = Call::<T>::process_epoch_event {
                 nonce,
-                payload: payload_vec.clone(),
+                payload: stub_event_data.clone(), // Clone for logging
             };
-            log::info!("Submitting call with payload: {:?}", payload_vec);
-
+            log::info!("Submitting call with payload: {:?}", stub_event_data);
+        
             // Submit the transaction
             match frame_system::offchain::SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()) {
                 Ok(_) => log::info!("Stub event transaction submitted successfully"),
                 Err(e) => log::error!("Error submitting stub event transaction: {:?}", e),
             }
-
+        
             Ok(())
         }
+        
+        
     }
 
     impl<T: Config> Pallet<T>
