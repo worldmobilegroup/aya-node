@@ -8,7 +8,7 @@ benchmarks! {
         let caller: T::AccountId = whitelisted_caller();
     }: _(RawOrigin::Signed(caller))
 
-    submit_empty_transaction {
+    process_epoch_event{
         let nonce: u64 = 0;
     }: _(RawOrigin::None, nonce)
 

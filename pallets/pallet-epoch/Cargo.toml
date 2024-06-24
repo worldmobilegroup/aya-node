@@ -27,12 +27,14 @@ serde_json = { workspace = true }
 pallet-session = { workspace = true }
 sp-application-crypto = { workspace = true }
 substrate-validator-set = { workspace = true }
-
+sp-state-machine = { workspace = true }
 
 [dev-dependencies]
 
 sp-consensus-aura = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.9.0", default-features = false }
 mockall = "0.12.1" 
+
+pallet-epoch = { path = "../pallet-epoch" }  # Adjust the path according to your project structure
 
 
 

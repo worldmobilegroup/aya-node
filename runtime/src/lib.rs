@@ -821,7 +821,7 @@ frame_support::construct_runtime!(
         Timestamp: pallet_timestamp,
         Balances: pallet_balances,
         ValidatorSet: substrate_validator_set,
-            Epoch: pallet_epoch::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
+        Epoch: pallet_epoch::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
         Session: pallet_session,
         ImOnline: pallet_im_online,
         Aura: pallet_aura,

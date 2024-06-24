@@ -6006,6 +6006,7 @@ dependencies = [
  "frame-system",
  "log",
  "mockall 0.12.1",
+ "pallet-epoch",
  "pallet-session",
  "parity-scale-codec",
  "scale-info",
@@ -6016,6 +6017,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
+ "sp-state-machine",
  "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.9.0)",
  "substrate-validator-set",
 ]
