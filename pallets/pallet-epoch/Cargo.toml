@@ -28,9 +28,10 @@ pallet-session = { workspace = true }
 sp-application-crypto = { workspace = true }
 substrate-validator-set = { workspace = true }
 sp-state-machine = { workspace = true }
+fp-account = { workspace = true }
 
 [dev-dependencies]
-
+scale-codec = { workspace = true }
 sp-consensus-aura = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.9.0", default-features = false }
 mockall = "0.12.1" 
 
