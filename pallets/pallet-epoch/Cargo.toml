@@ -29,14 +29,14 @@ sp-application-crypto = { workspace = true }
 substrate-validator-set = { workspace = true }
 sp-state-machine = { workspace = true }
 fp-account = { workspace = true }
-
+pallet-transaction-payment = { 	workspace = true }
 [dev-dependencies]
 scale-codec = { workspace = true }
 sp-consensus-aura = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.9.0", default-features = false }
 mockall = "0.12.1" 
 
 pallet-epoch = { path = "../pallet-epoch" }  # Adjust the path according to your project structure
-
+pallet-balances = {workspace = true}
 
 
 [features]
