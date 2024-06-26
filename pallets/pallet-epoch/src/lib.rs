@@ -649,10 +649,7 @@ pub mod pallet {
                 event.id, event.timestamp, event.block_height
             );
         }
-
-        
     }
-    
 
     // Add more descriptive error messages to help with debugging.
     impl<T: Config> Pallet<T> {
@@ -703,9 +700,6 @@ pub mod pallet {
             }
         }
     }
-
-    
-
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
