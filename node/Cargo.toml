@@ -28,9 +28,9 @@ jsonrpc-derive = "18.0.0"
 serde = { version = "1.0", features = ["derive"] }
 sp-io = { workspace = true }
 jsonrpc-core-client = "18.0.0" 
-
-
-
+hex = { workspace = true }
+blake2 = { workspace = true }
+environmental = { workspace = true }
 # Substrate
 prometheus-endpoint = { workspace = true }
 sc-basic-authorship = { workspace = true }
@@ -89,8 +89,8 @@ fp-dynamic-fee = { workspace = true, features = ["default"] }
 fp-evm = { workspace = true, features = ["default"] }
 fp-rpc = { workspace = true, features = ["default"] }
 aya-runtime = { workspace = true, features = ["std"] }
-
-
+# substrate-api-client = { workspace = true }
+sp-keyring = { workspace = true }
 
 jsonrpsee-ws-server = { workspace = true }
 

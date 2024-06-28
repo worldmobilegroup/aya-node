@@ -1,0 +1,94 @@
+.
+├── Cargo.lock
+├── Cargo.toml
+├── daemon_conf.toml
+├── diff.txt
+├── docker-compose.yml
+├── Dockerfile
+├── docs
+│   ├── assets
+│   │   ├── account_type.png
+│   │   ├── add_network.png
+│   │   ├── aya_local_testnet.png
+│   │   ├── metamask_settings.png
+│   │   ├── network_selector.png
+│   │   ├── node_identity_alice.png
+│   │   ├── polkadotjs_explorer.png
+│   │   ├── polkajs_fin.png
+│   │   ├── polkajs_talis_con.png
+│   │   ├── settings.png
+│   │   ├── talis_add_network.png
+│   │   ├── talisman_import.png
+│   │   ├── talisman_net.png
+│   │   └── talis_mng_networks.png
+│   ├── graph(1).png
+│   ├── graph(3).png
+│   ├── graph.png
+│   ├── guide_custom_account.md
+│   ├── guide_local_chain_setup.md
+│   ├── leader.md
+│   └── todo5-2-24.md
+├── examples
+│   ├── contract-erc20
+│   │   ├── create-erc20-rpc.ts
+│   │   ├── create-erc20.ts
+│   │   ├── package.json
+│   │   ├── package-lock.json
+│   │   ├── README.md
+│   │   ├── truffle
+│   │   └── tsconfig.json
+│   └── contract-hello
+│       ├── Hello.sol
+│       ├── index.js
+│       ├── package.json
+│       └── package-lock.json
+├── LICENSE
+├── node
+│   ├── build.rs
+│   ├── Cargo.toml
+│   ├── package.json
+│   ├── package-lock.json
+│   └── src
+│       ├── benchmarking.rs
+│       ├── chain_spec.rs
+│       ├── client.rs
+│       ├── cli.rs
+│       ├── command.rs
+│       ├── eth.rs
+│       ├── main.rs
+│       ├── rpc
+│       └── service.rs
+├── pallets
+│   ├── pallet-epoch
+│   │   ├── Cargo.toml
+│   │   ├── README.md
+│   │   └── src
+│   └── substrate-validator-set
+│       ├── Cargo.toml
+│       ├── LICENSE
+│       ├── rustfmt.toml
+│       └── src
+├── README.md
+├── repository_structure.txt
+├── runtime
+│   ├── build.rs
+│   ├── Cargo.toml
+│   └── src
+│       ├── account_id_conversion.rs
+│       ├── assets_api.rs
+│       ├── convert_validator.rs
+│       ├── lib.rs
+│       └── precompiles.rs
+├── rustc-ice-2024-06-24T20_15_12-493940.txt
+├── start_network2.py
+├── start_network.py
+└── tests
+    ├── checkTransactions.js
+    ├── fetchExtrinsics.js
+    ├── monitor3.js
+    ├── monitore2.js
+    ├── monitor.js
+    ├── package.json
+    └── package-lock.json
+
+17 directories, 74 files

@@ -4,64 +4,115 @@ use jsonrpsee_types::ErrorObjectOwned;
 use priority_queue::PriorityQueue;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::collections::hash_map::DefaultHasher;
 use std::collections::HashSet;
+use std::hash::{Hash, Hasher};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tracing::{error, info};
+use tracing::info;
 
 #[derive(Serialize, Deserialize, Debug, Eq, Hash, PartialEq, PartialOrd, Ord, Clone)]
 struct Event {
-    id: u64, // Add an ID field to the Event struct
+    id: u64,
     data: String,
     timestamp: u64,
     block_height: u64,
 }
 
-#[derive(Serialize, Deserialize)]
-struct UpdatePriorityParams {
-    id: u64,
-    new_priority: i32,
+impl Event {
+    
+
+    pub fn is_valid(&self) -> bool {
+        self.timestamp != 0 && self.block_height != 0
+    }
+
+    pub fn hash_without_timestamp(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        self.id.hash(&mut hasher);
+        self.data.hash(&mut hasher);
+        self.block_height.hash(&mut hasher);
+        hasher.finish()
+    }
+}
+
+struct EventQueue {
+    queue: PriorityQueue<Event, i32>,
+    event_hashes: HashSet<u64>,
+    processed_events: HashSet<u64>,
+}
+
+impl EventQueue {
+    fn new() -> Self {
+        EventQueue {
+            queue: PriorityQueue::new(),
+            event_hashes: HashSet::new(),
+            processed_events: HashSet::new(),
+        }
+    }
+
+    fn is_duplicate(&self, event: &Event) -> bool {
+        self.event_hashes.contains(&event.hash_without_timestamp())
+    }
+
+    fn mark_as_processed(&mut self, event_id: u64) {
+        self.processed_events.insert(event_id);
+    }
+
+    fn push(&mut self, event: Event, priority: i32) -> Result<(), String> {
+        if self.is_duplicate(&event) {
+            return Err(format!("Duplicate event: {:?}", event));
+        }
+        self.queue.push(event.clone(), priority);
+        self.event_hashes.insert(event.hash_without_timestamp());
+        Ok(())
+    }
+
+    fn iter(&self) -> impl Iterator<Item = (&Event, &i32)> {
+        self.queue.iter()
+    }
 }
 
 pub async fn run_server() -> anyhow::Result<SocketAddr> {
-    let pq = Arc::new(Mutex::new(PriorityQueue::<Event, i32>::new()));
-    let event_ids = Arc::new(Mutex::new(HashSet::<u64>::new()));
-    let context = Arc::new((pq, event_ids));
-
     let server = Server::builder().build("127.0.0.1:5555").await?;
     let addr = server.local_addr()?;
     info!("RPC server running on {}", addr);
 
-    let mut module = RpcModule::new(context);
+    let event_queue = Arc::new(Mutex::new(EventQueue::new()));
+    let mut module = RpcModule::new(event_queue.clone());
 
-    module.register_async_method("submit_event", |params, ctx| async move {
-        let (pq, event_ids) = &**ctx;
-        let (event, priority) = params.parse::<(Event, i32)>()?;
+    module.register_async_method("list_all_events", |_, event_queue| async move {
+        let mut queue = event_queue.lock().await;
+        let mut events = Vec::new();
+        let mut duplicates = Vec::new();
+        let mut to_mark_processed = Vec::new();
 
-        let mut event_ids = event_ids.lock().await;
-        if event_ids.contains(&event.id) {
-            error!("Event with id {} already exists", event.id);
-            return Ok::<_, ErrorObjectOwned>("Event with the same id already exists".to_string());
+        // Collect all events and identify duplicates
+        for (event, priority) in queue.iter() {
+            if queue.processed_events.contains(&event.id) {
+                duplicates.push((event.clone(), *priority));
+            } else {
+                events.push((event.clone(), *priority));
+                to_mark_processed.push(event.id);
+            }
         }
 
-        let mut pq = pq.lock().await;
-        event_ids.insert(event.id);
-        println!("Received event: {:?} with priority: {}", event, priority);
-        pq.push(event, priority);
-        Ok::<_, ErrorObjectOwned>("Event submitted successfully".to_string())
-    })?;
+        // Mark new events as processed
+        for event_id in to_mark_processed {
+            queue.mark_as_processed(event_id);
+        }
 
-    module.register_async_method("list_all_events", |_, ctx| async move {
-        let (pq, _) = &**ctx;
-        let mut pq = pq.lock().await;
-        let events = pq.iter().map(|(e, p)| (e.clone(), *p)).collect::<Vec<_>>();
-        if !events.is_empty() {
-            tracing::info!("response: {:?}", "Events listed successfully");
+        if !events.is_empty() || !duplicates.is_empty() {
+            tracing::info!(
+                "Events listed successfully. New events: {}, Duplicates: {}",
+                events.len(),
+                duplicates.len()
+            );
             Ok::<_, ErrorObjectOwned>(
                 serde_json::to_string(&json!({
                     "success": true,
-                    "events": events
+                    "events": events,
+                    "duplicates": duplicates
                 }))
                 .unwrap(),
             )
@@ -74,181 +125,19 @@ pub async fn run_server() -> anyhow::Result<SocketAddr> {
         }
     })?;
 
-    module.register_async_method("clear_all_events", |_, ctx| async move {
-        let (pq, event_ids) = &**ctx;
-        let mut pq = pq.lock().await;
-        let mut event_ids = event_ids.lock().await;
-        pq.clear();
-        event_ids.clear();
-        tracing::info!("response: {:?}", "Events cleared successfully");
-        Ok::<_, ErrorObjectOwned>("All events cleared".to_string())
-    })?;
+    module.register_async_method("submit_event", |params, event_queue| async move {
+        let (event, priority) = params.parse::<(Event, i32)>()?;
+        let mut queue = event_queue.lock().await;
 
-    module.register_async_method("pop", |_, ctx| async move {
-        let (pq, event_ids) = &**ctx;
-        let mut pq = pq.lock().await;
-        let mut event_ids = event_ids.lock().await;
-        if let Some((event, _priority)) = pq.pop() {
-            event_ids.remove(&event.id);
-            tracing::info!("response: {:?}", "Event popped successfully");
-            Ok::<_, ErrorObjectOwned>(
-                serde_json::to_string(&json!({
-                    "success": true,
-                    "event": event
-                }))
-                .unwrap(),
-            )
-        } else {
-            Ok(serde_json::to_string(&json!({
-                "success": false,
-                "message": "No events to pop"
-            }))
-            .unwrap())
-        }
-    })?;
-
-    module.register_async_method("get_event_count", |_, ctx| async move {
-        let (pq, _) = &**ctx;
-        let pq = pq.lock().await;
-        let response = json!({
-            "jsonrpc": "2.0",
-            "result": pq.len(),
-            "id": 1
-        })
-        .to_string();
-        Ok::<_, ErrorObjectOwned>(response)
-    })?;
-
-    module.register_async_method("get_event_by_id", |params, ctx| async move {
-        let (pq, _) = &**ctx;
-        let id: u64 = params.one()?;
-        let pq = pq.lock().await;
-        let event = pq.iter().find(|(e, _)| e.id == id).map(|(e, _)| e.clone());
-        if let Some(event) = event {
-            Ok::<_, ErrorObjectOwned>(
-                serde_json::to_string(&json!({
-                    "success": true,
-                    "event": event
-                }))
-                .unwrap(),
-            )
-        } else {
-            Ok::<_, ErrorObjectOwned>(
-                serde_json::to_string(&json!({
-                    "success": false,
-                    "message": "Event not found"
-                }))
-                .unwrap(),
-            )
-        }
-    })?;
-
-    module.register_async_method("update_event_priority", |params, ctx| async move {
-        let (pq, _) = &**ctx;
-        let UpdatePriorityParams { id, new_priority } = params.parse()?;
-        let mut pq = pq.lock().await;
-        let mut event_opt = None;
-        let mut events = Vec::new();
-        while let Some((e, p)) = pq.pop() {
-            if e.id == id {
-                event_opt = Some((e, new_priority));
-            } else {
-                events.push((e, p));
+        match queue.push(event.clone(), priority) {
+            Ok(_) => {
+                tracing::info!("Received event: {:?} with priority: {}", event, priority);
+                Ok::<_, ErrorObjectOwned>("Event submitted successfully".to_string())
             }
-        }
-        for (e, p) in events {
-            pq.push(e, p);
-        }
-        if let Some((event, priority)) = event_opt {
-            pq.push(event, priority);
-            Ok::<_, ErrorObjectOwned>("Event priority updated successfully".to_string())
-        } else {
-            Ok::<_, ErrorObjectOwned>("Event not found".to_string())
-        }
-    })?;
-
-    module.register_async_method("get_events_by_timestamp", |params, ctx| async move {
-        let (pq, _) = &**ctx;
-        let (start, end): (u64, u64) = params.parse()?;
-        let pq = pq.lock().await;
-        let events = pq
-            .iter()
-            .filter(|(e, _)| e.timestamp >= start && e.timestamp <= end)
-            .map(|(e, p)| (e.clone(), *p))
-            .collect::<Vec<_>>();
-        if !events.is_empty() {
-            Ok::<_, ErrorObjectOwned>(
-                serde_json::to_string(&json!({
-                    "success": true,
-                    "events": events
-                }))
-                .unwrap(),
-            )
-        } else {
-            Ok::<_, ErrorObjectOwned>(
-                serde_json::to_string(&json!({
-                    "success": false,
-                    "message": "No events found in the given timestamp range"
-                }))
-                .unwrap(),
-            )
-        }
-    })?;
-
-    module.register_async_method("request_event", |params, ctx| async move {
-        let (pq, _) = &**ctx;
-        let event_id: u64 = params.one()?;
-        let pq = pq.lock().await;
-        let event = pq
-            .iter()
-            .find(|(e, _)| e.id == event_id)
-            .map(|(e, _)| e.clone());
-        if let Some(event) = event {
-            Ok::<_, ErrorObjectOwned>(
-                serde_json::to_string(&json!({
-                    "success": true,
-                    "event": event
-                }))
-                .unwrap(),
-            )
-        } else {
-            Ok::<_, ErrorObjectOwned>(
-                serde_json::to_string(&json!({
-                    "success": false,
-                    "message": "Event not found"
-                }))
-                .unwrap(),
-            )
-        }
-    })?;
-
-    module.register_async_method("remove_event", |params, ctx| async move {
-        let (pq, event_ids) = &**ctx;
-        let event_id: u64 = params.one()?;
-        let mut pq = pq.lock().await;
-        let mut event_ids = event_ids.lock().await;
-        let mut found = false;
-
-        let mut temp_queue = PriorityQueue::new();
-        while let Some((event, priority)) = pq.pop() {
-            if event.id == event_id {
-                found = true;
-                break;
-            } else {
-                temp_queue.push(event, priority);
+            Err(e) => {
+                tracing::error!("Failed to submit event: {}", e);
+                Ok::<_, ErrorObjectOwned>(e)
             }
-        }
-
-        // Restore the remaining events
-        while let Some((event, priority)) = temp_queue.pop() {
-            pq.push(event, priority);
-        }
-
-        if found {
-            event_ids.remove(&event_id);
-            Ok::<_, ErrorObjectOwned>("Event removed successfully".to_string())
-        } else {
-            Ok::<_, ErrorObjectOwned>("Event not found".to_string())
         }
     })?;
 

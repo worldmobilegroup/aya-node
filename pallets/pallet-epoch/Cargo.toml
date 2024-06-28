@@ -30,6 +30,11 @@ substrate-validator-set = { workspace = true }
 sp-state-machine = { workspace = true }
 fp-account = { workspace = true }
 pallet-transaction-payment = { 	workspace = true }
+hex = { workspace = true }
+blake2 = { workspace = true } 
+
+
+
 [dev-dependencies]
 scale-codec = { workspace = true }
 sp-consensus-aura = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.9.0", default-features = false }
@@ -42,6 +47,7 @@ pallet-balances = {workspace = true}
 [features]
 default = ["std"]
 std = [
+	"hex/std",
 	"scale-codec/std",
 	"frame-benchmarking/std",
 	"frame-support/std",

@@ -5,6 +5,8 @@
 #![recursion_limit = "256"]
 #![allow(clippy::new_without_default, clippy::or_fun_call)]
 #![cfg_attr(feature = "runtime-benchmarks", warn(unused_crate_dependencies))]
+#[macro_use]
+extern crate environmental;
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]

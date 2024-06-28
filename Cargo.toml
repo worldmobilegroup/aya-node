@@ -32,7 +32,7 @@ jsonrpsee-ws-server = { version = "0.15.1", default-features = false }
 jsonrpsee-http-client = { version = "0.22.5", default-features = false }
 
 
-
+blake2 = { version = "0.9.0", default-features = false }
 kvdb-rocksdb = { version = "0.19.0", default-features = false }
 libsecp256k1 = { version = "0.7.1", default-features = false }
 log = { version = "0.4.21", default-features = false }
@@ -63,6 +63,7 @@ lazy_static = "1.4.0"
 
 env_logger = "0.11.3"
 # Substrate Client
+
 sc-basic-authorship = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.9.0" }
 sc-block-builder = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.9.0" }
 sc-chain-spec = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.9.0" }

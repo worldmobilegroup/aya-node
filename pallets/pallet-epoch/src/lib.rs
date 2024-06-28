@@ -6,6 +6,7 @@ extern crate sp_std;
 use alloc::format;
 use alloc::{string::ToString, vec::Vec};
 use core::primitive::str;
+use frame_support::traits::StorageInstance;
 use frame_support::{
     dispatch::DispatchResult, pallet_prelude::*, storage::types::StorageMap,
     unsigned::TransactionSource, weights::Weight,
@@ -14,18 +15,19 @@ use frame_system::{offchain::*, pallet_prelude::*};
 use log::info;
 pub use pallet::*;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use sp_runtime::traits::IdentifyAccount;
 
 use sp_application_crypto::{AppCrypto, RuntimePublic};
 
+use scale_info::TypeInfo;
+use serde_json;
+use serde_json::Value;
 use sp_runtime::{
     app_crypto::AppPublic,
     codec::{Decode, Encode},
     offchain::{self as rt_offchain},
     traits::{Extrinsic as ExtrinsicT, ValidateUnsigned},
 };
-
-use scale_info::TypeInfo;
-use serde_json;
 use substrate_validator_set as validator_set;
 
 use pallet_session;
@@ -48,90 +50,101 @@ mod benchmarking;
 mod mock; // Add this line to declare the mock module
 pub mod weights;
 
-// Define the type for the maximum length
-pub struct MaxDataLength;
+mod limits;
+mod types;
+use limits::{MaxDataLength, MaxEventsLength, MaxPayloadLength, MaxRemoveEventsLength};
+use types::{CustomData, CustomEvent, EpochChangeData};
 
-impl MaxEncodedLen for CustomEvent {
-    fn max_encoded_len() -> usize {
-        u32::MAX as usize
-    }
+#[derive(Serialize, Deserialize)]
+struct ProcessedEventResult {
+    events: Vec<Vec<CustomEvent>>,
+    duplicates: Vec<Vec<CustomEvent>>,
+    success: bool,
 }
+// // Define the type for the maximum length
+// pub struct MaxDataLength;
 
-impl MaxEncodedLen for CustomData {
-    fn max_encoded_len() -> usize {
-        u32::MAX as usize
-    }
-}
+// impl MaxEncodedLen for CustomEvent {
+//     fn max_encoded_len() -> usize {
+//         u32::MAX as usize
+//     }
+// }
 
-impl MaxEncodedLen for EpochChangeData {
-    fn max_encoded_len() -> usize {
-        u32::MAX as usize
-    }
-}
+// impl MaxEncodedLen for CustomData {
+//     fn max_encoded_len() -> usize {
+//         u32::MAX as usize
+//     }
+// }
 
-impl Get<u32> for MaxDataLength {
-    fn get() -> u32 {
-        1024 // Define your max length here
-    }
-}
+// impl MaxEncodedLen for EpochChangeData {
+//     fn max_encoded_len() -> usize {
+//         u32::MAX as usize
+//     }
+// }
 
-// Define the type for the maximum length
-pub struct MaxPayloadLength;
+// impl Get<u32> for MaxDataLength {
+//     fn get() -> u32 {
+//         1024 // Define your max length here
+//     }
+// }
 
-impl Get<u32> for MaxPayloadLength {
-    fn get() -> u32 {
-        1024 // Define your max length here
-    }
-}
+// // Define the type for the maximum length
+// pub struct MaxPayloadLength;
 
-pub struct MaxEventsLength;
+// impl Get<u32> for MaxPayloadLength {
+//     fn get() -> u32 {
+//         1024 // Define your max length here
+//     }
+// }
 
-impl Get<u32> for MaxEventsLength {
-    fn get() -> u32 {
-        100 // Define your max length here
-    }
-}
+// pub struct MaxEventsLength;
 
-pub struct MaxRemoveEventsLength;
+// impl Get<u32> for MaxEventsLength {
+//     fn get() -> u32 {
+//         100 // Define your max length here
+//     }
+// }
 
-impl Get<u32> for MaxRemoveEventsLength {
-    fn get() -> u32 {
-        100 // Define your max length here
-    }
-}
+// pub struct MaxRemoveEventsLength;
 
-#[derive(
-    Default, Deserialize, Serialize, Encode, Decode, Clone, Debug, PartialEq, Eq, TypeInfo,
-)]
-pub struct CustomEvent {
-    pub id: u64,
-    pub data: CustomData,
-    pub timestamp: u64,
-    pub block_height: u64,
-}
+// impl Get<u32> for MaxRemoveEventsLength {
+//     fn get() -> u32 {
+//         100 // Define your max length here
+//     }
+// }
 
-#[derive(
-    Default, Deserialize, Serialize, Encode, Decode, Clone, Debug, PartialEq, Eq, TypeInfo,
-)]
-pub struct CustomData {
-    #[serde(rename = "type")]
-    pub event_type: String,
-    pub data: EpochChangeData,
-}
+// #[derive(
+//     Default, Deserialize, Serialize, Encode, Decode, Clone, Debug, PartialEq, Eq, TypeInfo,
+// )]
+// pub struct CustomEvent {
+//     pub id: u64,
+//     pub data: CustomData,
+//     pub timestamp: u64,
+//     pub block_height: u64,
+// }
 
-#[derive(
-    Default, Deserialize, Serialize, Encode, Decode, Clone, Debug, PartialEq, Eq, TypeInfo,
-)]
-pub struct EpochChangeData {
-    pub last_epoch: u64,
-    pub last_blockhash: String,
-    pub last_slot: u64,
-    pub new_epoch: u64,
-    pub new_slot: u64,
-    pub new_blockhash: String,
-    pub epoch_nonce: String,
-    pub extra_entropy: Option<String>,
-}
+// #[derive(
+//     Default, Deserialize, Serialize, Encode, Decode, Clone, Debug, PartialEq, Eq, TypeInfo,
+// )]
+// pub struct CustomData {
+//     #[serde(rename = "type")]
+//     pub event_type: String,
+//     pub data: EpochChangeData,
+// }
+
+// #[derive(
+//     Default, Deserialize, Serialize, Encode, Decode, Clone, Debug, PartialEq, Eq, TypeInfo,
+// )]
+// pub struct EpochChangeData {
+//     pub last_epoch: u64,
+//     pub last_blockhash: String,
+//     pub last_slot: u64,
+//     pub new_epoch: u64,
+//     pub new_slot: u64,
+//     pub new_blockhash: String,
+//     pub epoch_nonce: String,
+//     pub extra_entropy: Option<String>,
+// }
 #[derive(Debug, Deserialize)]
 struct JsonRpcResponse {
     events: Vec<Vec<CustomEvent>>, // Adjusted to directly hold the list of CustomEvent
@@ -177,6 +190,14 @@ pub mod pallet {
     pub type EventStorage<T: Config> =
         StorageMap<_, Blake2_128Concat, u64, CustomEvent, ValueQuery>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn processed_transactions)]
+    pub type ProcessedTransactions<T: Config> =
+        StorageMap<_, Blake2_128Concat, Vec<u8>, bool, OptionQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn pending_events)]
+    pub type PendingEvents<T: Config> = StorageMap<_, Blake2_128Concat, u64, (), OptionQuery>;
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn offchain_worker(block_number: BlockNumberFor<T>) {
@@ -212,8 +233,12 @@ pub mod pallet {
                         payload
                     );
 
+                    // Check if the transaction has already been processed
+                    if ProcessedTransactions::<T>::contains_key(&payload) {
+                        return InvalidTransaction::Stale.into();
+                    }
+
                     // Perform your validation logic here
-                    // For example, you can decode the payload and check its contents
                     match CustomEvent::decode(&mut &payload[..]) {
                         Ok(decoded_event) => {
                             log::info!("Decoded event from payload: {:?}", decoded_event);
@@ -253,71 +278,138 @@ pub mod pallet {
     where
         T: frame_system::offchain::SendTransactionTypes<Call<T>>,
     {
-        fn fetch_and_process_events_from_queue() -> Result<(), Error<T>> {
-            log::info!("Fetching all events from the queue");
+        fn fetch_event_id(event_id: u64) -> Result<String, Error<T>> {
+            let url = "http://127.0.0.1:5555";
+            let request_body = serde_json::json!({
+                "jsonrpc": "2.0",
+                "method": "get_event_id",
+                "params": [event_id],
+                "id": 1
+            })
+            .to_string();
 
-            // Fetch all events as a JSON response
-            let response = Self::process_real_event()?;
+            let request = rt_offchain::http::Request::post(url, vec![request_body.into_bytes()])
+                .add_header("Content-Type", "application/json")
+                .add_header("User-Agent", "SubstrateOffchainWorker")
+                .deadline(
+                    sp_io::offchain::timestamp().add(rt_offchain::Duration::from_millis(3000)),
+                )
+                .send()
+                .map_err(|_| <Error<T>>::HttpFetchingError)?;
 
-            // Deserialize the JSON response into the expected structure
-            let events: Vec<Vec<CustomEvent>> = serde_json::from_slice(&response).map_err(|e| {
-                log::error!("Failed to deserialize events: {:?}", e);
-                <Error<T>>::JsonSerializationError
-            })?;
+            let response = request
+                .try_wait(
+                    sp_io::offchain::timestamp().add(rt_offchain::Duration::from_millis(3000)),
+                )
+                .map_err(|_| <Error<T>>::HttpFetchingError)?
+                .map_err(|_| <Error<T>>::HttpFetchingError)?;
 
-            // Process each event
-            for event_group in events.iter() {
-                for event in event_group.iter() {
-                    log::info!("Processing event: {:?}", event);
-
-                    // Encode the event payload
-                    let payload = event.encode();
-
-                    // Submit the encoded payload as an unsigned transaction
-                    log::info!(
-                        "Submitting unsigned transaction with payload: {:?}",
-                        payload
-                    );
-
-                    // Create and submit the call
-                    let call = Call::<T>::submit_encoded_payload {
-                        payload: payload.clone(),
-                    };
-
-                    match frame_system::offchain::SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()) {
-                Ok(_) => log::info!("Transaction submitted successfully"),
-                Err(e) => log::error!("Error submitting unsigned transaction: {:?}", e),
+            if response.code != 200 {
+                log::error!("Unexpected response code: {}", response.code);
+                return Err(<Error<T>>::HttpFetchingError);
             }
+
+            let body = response.body().collect::<Vec<u8>>();
+            let body_str = sp_std::str::from_utf8(&body).map_err(|_| <Error<T>>::InvalidUtf8)?;
+
+            let json: serde_json::Value =
+                serde_json::from_str(body_str).map_err(|_| <Error<T>>::JsonSerializationError)?;
+            if json["success"].as_bool().unwrap_or(false) {
+                if let Some(event_id) = json["event_id"].as_str() {
+                    return Ok(event_id.to_string());
                 }
             }
 
-            // Return Ok(()) at the end of the function
+            Err(<Error<T>>::InvalidResponseFormat)
+        }
+        fn fetch_and_process_events_from_queue() -> Result<(), Error<T>> {
+            log::info!("Fetching all events from the queue");
+
+            let response = Self::process_real_event()?;
+            let response_data: ProcessedEventResult =
+                serde_json::from_slice(&response).map_err(|e| {
+                    log::error!("Failed to deserialize events: {:?}", e);
+                    <Error<T>>::JsonSerializationError
+                })?;
+
+            let events = response_data.events;
+            let duplicates = response_data.duplicates;
+
+            for event_group in events.into_iter().chain(duplicates.into_iter()) {
+                for event in event_group {
+                    log::info!("Processing event: {:?}", event);
+
+                    let payload = event.encode();
+                    if !ProcessedTransactions::<T>::contains_key(&payload) {
+                        match Self::submit_unsigned_transaction(payload.clone(), event.id) {
+                            Ok(_) => {
+                                log::info!(
+                                    "Transaction submitted successfully for event ID: {}",
+                                    event.id
+                                );
+                            }
+                            Err(e) => {
+                                log::error!("Error submitting unsigned transaction: {:?}", e);
+                            }
+                        }
+                    } else {
+                        log::info!("Event {} is already processed", event.id);
+                    }
+                }
+            }
+
             Ok(())
         }
     }
 
     use alloc::format;
 
-    impl<T: Config> Pallet<T>
-    where
-        T: frame_system::offchain::SendTransactionTypes<Call<T>>,
-    {
-        fn submit_unsigned_transaction(payload: Vec<u8>) -> Result<(), &'static str> {
+    impl<T: Config> Pallet<T> {
+        fn submit_unsigned_transaction(
+            payload: Vec<u8>,
+            event_id: u64,
+        ) -> Result<(), &'static str> {
             log::info!(
-                "Creating Call::submit_encoded_payload with payload: {:?}",
-                payload
+                "Attempting to submit unsigned transaction with payload: {:?} and event_id: {}",
+                payload,
+                event_id
             );
 
-            let call = Call::submit_encoded_payload { payload };
+            if ProcessedTransactions::<T>::contains_key(&payload) {
+                log::info!(
+                    "Transaction with payload {:?} is already processed",
+                    payload
+                );
+                return Ok(());
+            }
 
-            log::info!("Submitting unsigned transaction with call: {:?}", call);
-            frame_system::offchain::SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
-                call.into(),
-            )
-            .map_err(|e| {
-                log::error!("Failed to submit unsigned transaction: {:?}", e);
-                "Failed to submit unsigned transaction"
-            })
+            if PendingEvents::<T>::contains_key(event_id) {
+                log::info!("Event {} is already being processed", event_id);
+                return Ok(());
+            }
+
+            PendingEvents::<T>::insert(event_id, ());
+
+            let call = Call::submit_encoded_payload {
+                payload: payload.clone(),
+            };
+
+            log::info!("Submitting call: {:?}", call);
+
+            match frame_system::offchain::SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()) {
+                Ok(_) => {
+                    log::info!("Transaction submitted successfully");
+                    ProcessedTransactions::<T>::insert(payload, true);
+                    EventStorage::<T>::remove(event_id);
+                    PendingEvents::<T>::remove(event_id);
+                    Ok(())
+                },
+                Err(e) => {
+                    log::error!("Failed to submit unsigned transaction: {:?}", e);
+                    PendingEvents::<T>::remove(event_id);
+                    Err("Failed to submit unsigned transaction")
+                }
+            }
         }
     }
 
@@ -334,7 +426,7 @@ pub mod pallet {
             const HTTP_HEADER_CONTENT_TYPE: &str = "Content-Type";
             const CONTENT_TYPE_JSON: &str = "application/json";
             const FETCH_TIMEOUT_PERIOD: u64 = 3000; // in milliseconds
-
+    
             // Create the JSON-RPC request payload
             let json_payload = serde_json::json!({
                 "jsonrpc": "2.0",
@@ -344,7 +436,7 @@ pub mod pallet {
             })
             .to_string()
             .into_bytes();
-
+    
             // Initiate an external HTTP POST request
             let request =
                 rt_offchain::http::Request::post(HTTP_REMOTE_REQUEST, vec![&json_payload])
@@ -356,7 +448,7 @@ pub mod pallet {
                     )
                     .send()
                     .map_err(|_| <Error<T>>::HttpFetchingError)?;
-
+    
             let response = request
                 .try_wait(
                     sp_io::offchain::timestamp()
@@ -364,7 +456,7 @@ pub mod pallet {
                 )
                 .map_err(|_| <Error<T>>::HttpFetchingError)?
                 .map_err(|_| <Error<T>>::HttpFetchingError)?;
-
+    
             if response.code != 200 {
                 log::error!("Non-200 response code: {}", response.code);
                 return Err(<Error<T>>::HttpFetchingError);
@@ -374,44 +466,45 @@ pub mod pallet {
                 log::error!("Failed to parse response body as UTF-8: {:?}", e);
                 <Error<T>>::InvalidUtf8
             })?;
-
+    
             log::info!("HTTP Response Body: {}", json_string);
-
+    
             // Parse the outer JSON-RPC response
             let rpc_response: serde_json::Value =
                 serde_json::from_str(&json_string).map_err(|e| {
                     log::error!("Failed to parse JSON-RPC response: {:?}", e);
                     <Error<T>>::InvalidResponseFormat
                 })?;
-
+    
             log::info!("RPC Response: {:?}", rpc_response);
-
+    
             // Extract the "result" field, which is a stringified JSON
             let result_str = rpc_response["result"].as_str().ok_or_else(|| {
                 log::error!("Failed to extract result string");
                 <Error<T>>::InvalidResponseFormat
             })?;
-
+    
             log::info!("Result string: {}", result_str);
-
-            // Parse the inner JSON (the actual event data)
-            let inner_response: serde_json::Value =
-                serde_json::from_str(result_str).map_err(|e| {
-                    log::error!("Failed to parse inner JSON response: {:?}", e);
-                    <Error<T>>::InvalidResponseFormat
-                })?;
-
+    
+            let inner_response: serde_json::Value = serde_json::from_str(result_str).map_err(|e| {
+                log::error!("Failed to parse inner JSON response: {:?}", e);
+                <Error<T>>::InvalidResponseFormat
+            })?;
+    
             log::info!("Inner response: {:?}", inner_response);
-
-            // Extract the events array
+    
+            // Extract the events and duplicates arrays
             let events = inner_response["events"].as_array().ok_or_else(|| {
                 log::error!("Failed to extract events array");
                 <Error<T>>::InvalidResponseFormat
             })?;
-
+    
+            // let duplicates = inner_response["duplicates"].as_array().unwrap_or(&Vec::new());
+            let binding = Vec::new();
+            let duplicates = inner_response["duplicates"].as_array().unwrap_or(&binding);
             log::info!("Events: {:?}", events);
-
-            // Process each event
+            log::info!("Duplicates: {:?}", duplicates);
+    
             let mut processed_events = Vec::new();
             for (i, event_group) in events.iter().enumerate() {
                 let mut processed_group = Vec::new();
@@ -424,67 +517,127 @@ pub mod pallet {
                     .iter()
                     .enumerate()
                 {
-                    log::info!("Processing event {}.{}: {:?}", i, j, event);
-
-                    // Check if the event is a JSON object
-                    if let Some(event_obj) = event.as_object() {
-                        let id = event_obj["id"].as_u64().ok_or_else(|| {
-                            log::error!("Failed to extract id from event {}.{}", i, j);
-                            <Error<T>>::InvalidResponseFormat
-                        })?;
-                        let timestamp = event_obj["timestamp"].as_u64().ok_or_else(|| {
-                            log::error!("Failed to extract timestamp from event {}.{}", i, j);
-                            <Error<T>>::InvalidResponseFormat
-                        })?;
-                        let block_height = event_obj["block_height"].as_u64().ok_or_else(|| {
-                            log::error!("Failed to extract block_height from event {}.{}", i, j);
-                            <Error<T>>::InvalidResponseFormat
-                        })?;
-
-                        // Parse the data field, which is a stringified JSON
-                        let data_str = event_obj["data"].as_str().ok_or_else(|| {
-                            log::error!("Failed to extract data string from event {}.{}", i, j);
-                            <Error<T>>::InvalidResponseFormat
-                        })?;
-
-                        log::info!("Data string for event {}.{}: {}", i, j, data_str);
-
-                        let data: CustomData = serde_json::from_str(data_str).map_err(|e| {
-                            log::error!(
-                                "Failed to parse event data for event {}.{}: {:?}",
-                                i,
-                                j,
-                                e
-                            );
-                            <Error<T>>::JsonSerializationError
-                        })?;
-
-                        let custom_event = CustomEvent {
-                            id,
-                            data,
-                            timestamp,
-                            block_height,
-                        };
-
-                        log::info!("Processed event {}.{}: {:?}", i, j, custom_event);
-
+                    if let Some(custom_event) = Self::process_event(event, i, j, "event")? {
                         processed_group.push(custom_event);
-                    } else {
-                        log::warn!("Skipping non-object event {}.{}: {:?}", i, j, event);
                     }
                 }
                 processed_events.push(processed_group);
             }
-
-            // Serialize the processed events back to JSON
-            let events_json = serde_json::to_string(&processed_events).map_err(|e| {
-                log::error!("Failed to serialize processed events: {:?}", e);
+    
+            // Process duplicates
+            let mut processed_duplicates = Vec::new();
+            for (i, duplicate_group) in duplicates.iter().enumerate() {
+                let mut processed_group = Vec::new();
+                for (j, duplicate) in duplicate_group
+                    .as_array()
+                    .ok_or_else(|| {
+                        log::error!("Duplicate group {} is not an array", i);
+                        <Error<T>>::InvalidResponseFormat
+                    })?
+                    .iter()
+                    .enumerate()
+                {
+                    if let Some(custom_event) = Self::process_event(duplicate, i, j, "duplicate")? {
+                        processed_group.push(custom_event);
+                    }
+                }
+                processed_duplicates.push(processed_group);
+            }
+    
+            // Combine processed events and duplicates
+            let result = ProcessedEventResult {
+                events: processed_events,
+                duplicates: processed_duplicates,
+                success: true,
+            };
+    
+            // Serialize the result back to JSON
+            let result_json = serde_json::to_string(&result).map_err(|e| {
+                log::error!("Failed to serialize processed result: {:?}", e);
                 <Error<T>>::JsonSerializationError
             })?;
+    
+            log::info!("Processed result JSON: {}", result_json);
+    
+            Ok(result_json.into_bytes())
+        }
 
-            log::info!("Processed events JSON: {}", events_json);
+        fn process_event(
+            event: &serde_json::Value,
+            i: usize,
+            j: usize,
+            event_type: &str,
+        ) -> Result<Option<CustomEvent>, Error<T>> {
+            log::info!("Processing {} {}.{}: {:?}", event_type, i, j, event);
 
-            Ok(events_json.into_bytes())
+            if let Some(event_obj) = event.as_object() {
+                let id = event_obj["id"].as_u64().ok_or_else(|| {
+                    log::error!("Failed to extract id from {} {}.{}", event_type, i, j);
+                    <Error<T>>::InvalidResponseFormat
+                })?;
+                let timestamp = event_obj["timestamp"].as_u64().ok_or_else(|| {
+                    log::error!(
+                        "Failed to extract timestamp from {} {}.{}",
+                        event_type,
+                        i,
+                        j
+                    );
+                    <Error<T>>::InvalidResponseFormat
+                })?;
+                let block_height = event_obj["block_height"].as_u64().ok_or_else(|| {
+                    log::error!(
+                        "Failed to extract block_height from {} {}.{}",
+                        event_type,
+                        i,
+                        j
+                    );
+                    <Error<T>>::InvalidResponseFormat
+                })?;
+
+                let data_str = event_obj["data"].as_str().ok_or_else(|| {
+                    log::error!(
+                        "Failed to extract data string from {} {}.{}",
+                        event_type,
+                        i,
+                        j
+                    );
+                    <Error<T>>::InvalidResponseFormat
+                })?;
+
+                log::info!("Data string for {} {}.{}: {}", event_type, i, j, data_str);
+
+                let data: CustomData = serde_json::from_str(data_str).map_err(|e| {
+                    log::error!(
+                        "Failed to parse {} data for {} {}.{}: {:?}",
+                        event_type,
+                        event_type,
+                        i,
+                        j,
+                        e
+                    );
+                    <Error<T>>::JsonSerializationError
+                })?;
+
+                let custom_event = CustomEvent {
+                    id,
+                    data,
+                    timestamp,
+                    block_height,
+                };
+
+                log::info!("Processed {} {}.{}: {:?}", event_type, i, j, custom_event);
+
+                Ok(Some(custom_event))
+            } else {
+                log::warn!(
+                    "Skipping non-object {} {}.{}: {:?}",
+                    event_type,
+                    i,
+                    j,
+                    event
+                );
+                Ok(None)
+            }
         }
         // Step 5: Message Cleanup
         fn cleanup_processed_events() {
@@ -759,6 +912,28 @@ pub mod pallet {
             log::info!("Processing decoded call: {:?}", call);
             Self::process_decoded_call(call)
         }
+        #[pallet::call_index(3)]
+        #[pallet::weight(10_000)]
+        pub fn remove_event_from_storage(origin: OriginFor<T>, event_id: u64) -> DispatchResult {
+            let _who = ensure_signed(origin)?;
+            ensure!(
+                EventStorage::<T>::contains_key(event_id),
+                Error::<T>::EventNotFound
+            );
+
+            EventStorage::<T>::remove(event_id);
+
+            Self::deposit_event(Event::EventRemoved { event_id });
+            Ok(())
+        }
+        #[pallet::call_index(4)]
+        #[pallet::weight(10_000)]
+        pub fn store_event_id(origin: OriginFor<T>, event_id: String) -> DispatchResult {
+            let _who = ensure_none(origin)?;
+            // Implement the logic to store the event ID
+            log::info!("Storing event ID: {:?}", event_id);
+            Ok(())
+        }
     }
 
     #[pallet::error]
@@ -781,6 +956,7 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         DataFetchedSuccessfully,
+        EventRemoved { event_id: u64 },
     }
 
     #[pallet::type_value]
