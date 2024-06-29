@@ -12,16 +12,29 @@ use frame_support::{
     unsigned::TransactionSource, weights::Weight,
 };
 use frame_system::{offchain::*, pallet_prelude::*};
+use hex_literal::hex;
 use log::info;
 pub use pallet::*;
+use sp_core::sr25519::{Public as Sr25519Public};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use sp_application_crypto::ed25519::Signature;
 use sp_runtime::traits::IdentifyAccount;
-
-use sp_application_crypto::{AppCrypto, RuntimePublic};
+use sp_consensus_grandpa::AuthorityId as GrandpaId;
+use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 
 use scale_info::TypeInfo;
 use serde_json;
 use serde_json::Value;
+use sp_application_crypto::{AppCrypto, RuntimePublic};
+use sp_core::crypto::KeyTypeId;
+use sp_io::crypto::ecdsa_sign;
+
+use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+
+use sp_core::sr25519::Signature as Sr25519Signature;
+use sp_io::crypto::sr25519_sign;
+
+use sp_runtime::app_crypto::sp_core::crypto::Public;
 use sp_runtime::{
     app_crypto::AppPublic,
     codec::{Decode, Encode},
@@ -55,12 +68,19 @@ mod types;
 use limits::{MaxDataLength, MaxEventsLength, MaxPayloadLength, MaxRemoveEventsLength};
 use types::{CustomData, CustomEvent, EpochChangeData};
 
+use sp_core::ecdsa::{Pair as EcdsaPair, Public as EcdsaPublic, Signature as EcdsaSignature};
+use sp_core::Pair;
+
+const KEY_TYPE: KeyTypeId = KeyTypeId(*b"aura");
+
 #[derive(Serialize, Deserialize)]
 struct ProcessedEventResult {
     events: Vec<Vec<CustomEvent>>,
     duplicates: Vec<Vec<CustomEvent>>,
     success: bool,
 }
+use sp_runtime::traits::Verify;
+pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 // // Define the type for the maximum length
 // pub struct MaxDataLength;
 
@@ -171,7 +191,9 @@ pub mod pallet {
     {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type WeightInfo: WeightInfo;
-        type AuthorityId: AppPublic + From<sp_core::sr25519::Public>;
+        type AuthorityId: AppPublic
+            + From<sp_core::sr25519::Public>
+            + Into<sp_core::sr25519::Public>;
         type ValidatorId: Clone
             + From<Self::AccountId>
             + Into<AccountId32>
@@ -198,6 +220,12 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn pending_events)]
     pub type PendingEvents<T: Config> = StorageMap<_, Blake2_128Concat, u64, (), OptionQuery>;
+
+    // Add the new storage item here
+    #[pallet::storage]
+    #[pallet::getter(fn processed_events)]
+    pub type ProcessedEvents<T: Config> = StorageMap<_, Blake2_128Concat, u64, bool, ValueQuery>;
+
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn offchain_worker(block_number: BlockNumberFor<T>) {
@@ -216,8 +244,6 @@ pub mod pallet {
         type Call = Call<T>;
 
         fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-            log::info!("Validating unsigned transaction: {:?}", call);
-
             // Only accept transactions from local or in-block sources
             if !matches!(
                 source,
@@ -228,34 +254,28 @@ pub mod pallet {
 
             match call {
                 Call::submit_encoded_payload { payload } => {
-                    log::info!(
-                        "Validating submit_encoded_payload with payload: {:?}",
-                        payload
-                    );
+                    // Decode the payload to extract the event
+                    let event = match CustomEvent::decode(&mut &payload[..]) {
+                        Ok(event) => event,
+                        Err(e) => {
+                            log::error!("Failed to decode event from payload: {:?}", e);
+                            return InvalidTransaction::BadProof.into();
+                        }
+                    };
 
-                    // Check if the transaction has already been processed
-                    if ProcessedTransactions::<T>::contains_key(&payload) {
+                    // Check if the event is a duplicate
+                    if Self::is_duplicate(&event) {
+                        log::warn!("Duplicate event detected: {:?}", event);
                         return InvalidTransaction::Stale.into();
                     }
 
-                    // Perform your validation logic here
-                    match CustomEvent::decode(&mut &payload[..]) {
-                        Ok(decoded_event) => {
-                            log::info!("Decoded event from payload: {:?}", decoded_event);
+                    // Perform additional validation if needed
 
-                            // Additional validation logic can be added here
-
-                            ValidTransaction::with_tag_prefix("OffchainWorker")
-                                .priority(TransactionPriority::max_value())
-                                .longevity(TransactionLongevity::max_value())
-                                .propagate(true)
-                                .build()
-                        }
-                        Err(e) => {
-                            log::error!("Failed to decode event from payload: {:?}", e);
-                            InvalidTransaction::BadProof.into()
-                        }
-                    }
+                    ValidTransaction::with_tag_prefix("OffchainWorker")
+                        .priority(TransactionPriority::max_value())
+                        .longevity(TransactionLongevity::max_value())
+                        .propagate(true)
+                        .build()
                 }
                 _ => InvalidTransaction::Call.into(),
             }
@@ -335,18 +355,29 @@ pub mod pallet {
             let events = response_data.events;
             let duplicates = response_data.duplicates;
 
-            for event_group in events.into_iter().chain(duplicates.into_iter()) {
+            for event_group in events.into_iter() {
                 for event in event_group {
                     log::info!("Processing event: {:?}", event);
 
+                    // Check if the event has already been processed
+                    if ProcessedEvents::<T>::contains_key(event.id) {
+                        log::info!("Event {} is already processed", event.id);
+                        Self::remove_event_from_priority_queue(event.id).ok(); // Ensure to remove already processed events
+                        continue;
+                    }
+
                     let payload = event.encode();
                     if !ProcessedTransactions::<T>::contains_key(&payload) {
+                        log::info!("Attempting to submit unsigned transaction with payload: {:?} and event_id: {}", payload, event.id);
                         match Self::submit_unsigned_transaction(payload.clone(), event.id) {
                             Ok(_) => {
                                 log::info!(
                                     "Transaction submitted successfully for event ID: {}",
                                     event.id
                                 );
+                                ProcessedEvents::<T>::insert(event.id, true); // Mark the event as processed
+                                Self::remove_event_from_priority_queue(event.id).ok();
+                                // Remove the event from the priority queue
                             }
                             Err(e) => {
                                 log::error!("Error submitting unsigned transaction: {:?}", e);
@@ -354,7 +385,16 @@ pub mod pallet {
                         }
                     } else {
                         log::info!("Event {} is already processed", event.id);
+                        Self::remove_event_from_priority_queue(event.id).ok(); // Ensure to remove already processed events
                     }
+                }
+            }
+
+            // Process duplicates separately
+            for event_group in duplicates.into_iter() {
+                for event in event_group {
+                    log::info!("Duplicate event detected: {:?}", event);
+                    Self::remove_event_from_priority_queue(event.id).ok(); // Remove the duplicate event from the priority queue
                 }
             }
 
@@ -390,6 +430,14 @@ pub mod pallet {
 
             PendingEvents::<T>::insert(event_id, ());
 
+            // // Sign the payload
+            let signature = Self::sign_payload(&payload).map_err(|e| {
+                log::error!("Failed to sign payload: {}", e);
+                e
+            })?;
+
+            log::info!("Payload signature: {:?}", signature);
+
             let call = Call::submit_encoded_payload {
                 payload: payload.clone(),
             };
@@ -397,19 +445,19 @@ pub mod pallet {
             log::info!("Submitting call: {:?}", call);
 
             match frame_system::offchain::SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()) {
-                Ok(_) => {
-                    log::info!("Transaction submitted successfully");
-                    ProcessedTransactions::<T>::insert(payload, true);
-                    EventStorage::<T>::remove(event_id);
-                    PendingEvents::<T>::remove(event_id);
-                    Ok(())
-                },
-                Err(e) => {
-                    log::error!("Failed to submit unsigned transaction: {:?}", e);
-                    PendingEvents::<T>::remove(event_id);
-                    Err("Failed to submit unsigned transaction")
-                }
-            }
+        Ok(_) => {
+            log::info!("Transaction submitted successfully");
+            ProcessedTransactions::<T>::insert(payload, true);
+            EventStorage::<T>::remove(event_id);
+            PendingEvents::<T>::remove(event_id);
+            Ok(())
+        },
+        Err(e) => {
+            log::error!("Failed to submit unsigned transaction: {:?}", e);
+            PendingEvents::<T>::remove(event_id);
+            Err("Failed to submit unsigned transaction")
+        }
+    }
         }
     }
 
@@ -420,13 +468,58 @@ pub mod pallet {
         <T as pallet_session::Config>::ValidatorId: Clone,
         T::AuthorityId: AppCrypto + From<sp_core::sr25519::Public>,
     {
+        fn sign_payload(payload: &[u8]) -> Result<Sr25519Signature, &'static str> {
+            log::info!("Attempting to sign payload: {:?}", payload);
+    
+            let local_keys = Self::fetch_local_keys();
+            log::info!("Fetched local keys: {:?}", local_keys);
+    
+            if let Some(public_key) = local_keys.get(0) {
+                match sr25519_sign(KEY_TYPE, public_key, payload) {
+                    Some(signature) => {
+                        log::info!("Payload successfully signed: {:?}", signature);
+                        Ok(signature)
+                    }
+                    None => {
+                        log::error!("Signing failed");
+                        Err("Signing failed")
+                    }
+                }
+            } else {
+                log::error!("No local keys available");
+                Err("No local keys available")
+            }
+        }
+
+        pub fn authority_keys_from_seed(
+            s: &str,
+            a: AccountId,
+        ) -> (AccountId, AuraId, GrandpaId, ImOnlineId) {
+            (
+                a,
+                Self::get_from_seed::<AuraId>(s),
+                Self::get_from_seed::<GrandpaId>(s),
+               Self:: get_from_seed::<ImOnlineId>(s),
+            )
+        }
+       
+
+        fn fetch_local_keys() -> Vec<Sr25519Public> {
+            let keys = sp_io::crypto::sr25519_public_keys(KEY_TYPE);
+            log::info!("Fetched local keys: {:?}", keys);
+            keys
+        }
+        
+        
+        
+
         fn process_real_event() -> Result<Vec<u8>, Error<T>> {
             const HTTP_REMOTE_REQUEST: &str = "http://127.0.0.1:5555";
             const HTTP_HEADER_USER_AGENT: &str = "SubstrateOffchainWorker";
             const HTTP_HEADER_CONTENT_TYPE: &str = "Content-Type";
             const CONTENT_TYPE_JSON: &str = "application/json";
             const FETCH_TIMEOUT_PERIOD: u64 = 3000; // in milliseconds
-    
+
             // Create the JSON-RPC request payload
             let json_payload = serde_json::json!({
                 "jsonrpc": "2.0",
@@ -436,7 +529,7 @@ pub mod pallet {
             })
             .to_string()
             .into_bytes();
-    
+
             // Initiate an external HTTP POST request
             let request =
                 rt_offchain::http::Request::post(HTTP_REMOTE_REQUEST, vec![&json_payload])
@@ -448,7 +541,7 @@ pub mod pallet {
                     )
                     .send()
                     .map_err(|_| <Error<T>>::HttpFetchingError)?;
-    
+
             let response = request
                 .try_wait(
                     sp_io::offchain::timestamp()
@@ -456,7 +549,7 @@ pub mod pallet {
                 )
                 .map_err(|_| <Error<T>>::HttpFetchingError)?
                 .map_err(|_| <Error<T>>::HttpFetchingError)?;
-    
+
             if response.code != 200 {
                 log::error!("Non-200 response code: {}", response.code);
                 return Err(<Error<T>>::HttpFetchingError);
@@ -466,45 +559,46 @@ pub mod pallet {
                 log::error!("Failed to parse response body as UTF-8: {:?}", e);
                 <Error<T>>::InvalidUtf8
             })?;
-    
+
             log::info!("HTTP Response Body: {}", json_string);
-    
+
             // Parse the outer JSON-RPC response
             let rpc_response: serde_json::Value =
                 serde_json::from_str(&json_string).map_err(|e| {
                     log::error!("Failed to parse JSON-RPC response: {:?}", e);
                     <Error<T>>::InvalidResponseFormat
                 })?;
-    
+
             log::info!("RPC Response: {:?}", rpc_response);
-    
+
             // Extract the "result" field, which is a stringified JSON
             let result_str = rpc_response["result"].as_str().ok_or_else(|| {
                 log::error!("Failed to extract result string");
                 <Error<T>>::InvalidResponseFormat
             })?;
-    
+
             log::info!("Result string: {}", result_str);
-    
-            let inner_response: serde_json::Value = serde_json::from_str(result_str).map_err(|e| {
-                log::error!("Failed to parse inner JSON response: {:?}", e);
-                <Error<T>>::InvalidResponseFormat
-            })?;
-    
+
+            let inner_response: serde_json::Value =
+                serde_json::from_str(result_str).map_err(|e| {
+                    log::error!("Failed to parse inner JSON response: {:?}", e);
+                    <Error<T>>::InvalidResponseFormat
+                })?;
+
             log::info!("Inner response: {:?}", inner_response);
-    
+
             // Extract the events and duplicates arrays
             let events = inner_response["events"].as_array().ok_or_else(|| {
                 log::error!("Failed to extract events array");
                 <Error<T>>::InvalidResponseFormat
             })?;
-    
+
             // let duplicates = inner_response["duplicates"].as_array().unwrap_or(&Vec::new());
             let binding = Vec::new();
             let duplicates = inner_response["duplicates"].as_array().unwrap_or(&binding);
             log::info!("Events: {:?}", events);
             log::info!("Duplicates: {:?}", duplicates);
-    
+
             let mut processed_events = Vec::new();
             for (i, event_group) in events.iter().enumerate() {
                 let mut processed_group = Vec::new();
@@ -523,7 +617,7 @@ pub mod pallet {
                 }
                 processed_events.push(processed_group);
             }
-    
+
             // Process duplicates
             let mut processed_duplicates = Vec::new();
             for (i, duplicate_group) in duplicates.iter().enumerate() {
@@ -543,22 +637,22 @@ pub mod pallet {
                 }
                 processed_duplicates.push(processed_group);
             }
-    
+
             // Combine processed events and duplicates
             let result = ProcessedEventResult {
                 events: processed_events,
                 duplicates: processed_duplicates,
                 success: true,
             };
-    
+
             // Serialize the result back to JSON
             let result_json = serde_json::to_string(&result).map_err(|e| {
                 log::error!("Failed to serialize processed result: {:?}", e);
                 <Error<T>>::JsonSerializationError
             })?;
-    
+
             log::info!("Processed result JSON: {}", result_json);
-    
+
             Ok(result_json.into_bytes())
         }
 
@@ -647,13 +741,31 @@ pub mod pallet {
             }
         }
 
-        fn fetch_local_keys() -> Vec<T::AuthorityId> {
-            let key_type_id = T::AuthorityId::ID;
-            sp_io::crypto::sr25519_public_keys(key_type_id)
-                .into_iter()
-                .map(|key| T::AuthorityId::from(key))
-                .collect()
+        // fn fetch_local_keys() -> Vec<T::AuthorityId> {
+        //     let key_type_id = T::AuthorityId::ID;
+        //     sp_io::crypto::sr25519_public_keys(key_type_id)
+        //         .into_iter()
+        //         .map(|key| T::AuthorityId::from(key))
+        //         .collect()
+        // }
+        // Define the required modules and types
+        pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
+            TPublic::Pair::from_string(&format!("//{}", seed), None)
+                .expect("static values are valid; qed")
+                .public()
         }
+
+        pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
+        where
+            <Signature as sp_runtime::traits::Verify>::Signer:
+                From<<TPublic::Pair as Pair>::Public>,
+        {
+            <Signature as sp_runtime::traits::Verify>::Signer::from(Self::get_from_seed::<TPublic>(
+                seed,
+            ))
+            .into_account()
+        }
+
         // Function to convert ValidatorId to AuthorityId
         fn convert_validator_id_to_authority_id(
             key: <T as pallet::Config>::ValidatorId,
@@ -697,7 +809,7 @@ pub mod pallet {
                     let local_keys = Self::fetch_local_keys();
 
                     for local_key in local_keys {
-                        if local_key == leader_authority_id {
+                        if local_key == leader_authority_id.clone().into() {
                             return true;
                         }
                     }
@@ -739,7 +851,6 @@ pub mod pallet {
         }
 
         fn remove_event_from_priority_queue(event_id: u64) -> Result<(), Error<T>> {
-            // Call the HTTP method to remove the event from the priority queue
             let remove_event_payload = serde_json::json!({
                 "jsonrpc": "2.0",
                 "method": "remove_event",
@@ -789,6 +900,10 @@ pub mod pallet {
             }
 
             Ok(())
+        }
+
+        fn is_duplicate(event: &CustomEvent) -> bool {
+            ProcessedEvents::<T>::contains_key(event.id)
         }
 
         fn get_event(event_id: u64) -> Option<CustomEvent> {

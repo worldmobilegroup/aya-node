@@ -5,7 +5,7 @@ use std::sync::Arc;
 use futures::channel::mpsc;
 use jsonrpsee::RpcModule;
 // Substrate
-use log::{debug, error, info};
+
 use sc_client_api::{
     backend::{Backend, StorageProvider},
     client::BlockchainEvents,

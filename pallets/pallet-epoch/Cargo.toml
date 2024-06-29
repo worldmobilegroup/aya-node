@@ -32,6 +32,9 @@ fp-account = { workspace = true }
 pallet-transaction-payment = { 	workspace = true }
 hex = { workspace = true }
 blake2 = { workspace = true } 
+hex-literal = { workspace = true }
+pallet-im-online = { workspace = true }
+sp-consensus-grandpa = { workspace = true }
 
 
 

@@ -1,11 +1,11 @@
 use alloc::string::String;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
+use sp_io::hashing::blake2_256;
 use sp_runtime::codec::{Decode, Encode};
 use sp_runtime::traits::BlakeTwo256;
-use sp_std::prelude::*;
-use sp_io::hashing::blake2_256;
 use sp_runtime::traits::Hash;
+use sp_std::prelude::*;
 
 #[derive(
     Default, Deserialize, Serialize, Encode, Decode, Clone, Debug, PartialEq, Eq, TypeInfo,

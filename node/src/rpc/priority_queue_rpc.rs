@@ -21,8 +21,6 @@ struct Event {
 }
 
 impl Event {
-    
-
     pub fn is_valid(&self) -> bool {
         self.timestamp != 0 && self.block_height != 0
     }
@@ -52,7 +50,23 @@ impl EventQueue {
     }
 
     fn is_duplicate(&self, event: &Event) -> bool {
-        self.event_hashes.contains(&event.hash_without_timestamp())
+        let hash = event.hash_without_timestamp();
+        let is_duplicate =
+            self.event_hashes.contains(&hash) || self.processed_events.contains(&event.id);
+
+        tracing::debug!("Checking if event is duplicate:");
+        tracing::debug!("Event ID: {}, Hash without timestamp: {}", event.id, hash);
+        tracing::debug!(
+            "Event Hashes Contains: {}",
+            self.event_hashes.contains(&hash)
+        );
+        tracing::debug!(
+            "Processed Events Contains: {}",
+            self.processed_events.contains(&event.id)
+        );
+        tracing::debug!("Is Duplicate: {}", is_duplicate);
+
+        is_duplicate
     }
 
     fn mark_as_processed(&mut self, event_id: u64) {
@@ -90,6 +104,14 @@ pub async fn run_server() -> anyhow::Result<SocketAddr> {
         // Collect all events and identify duplicates
         for (event, priority) in queue.iter() {
             if queue.processed_events.contains(&event.id) {
+                if queue.is_duplicate(&event) {
+                    tracing::error!("Duplicate event detected: {:?}", event);
+                    return Err(ErrorObjectOwned::owned(
+                        -32000, // Custom error code
+                        format!("Duplicate event: {:?}", event),
+                        None::<()>,
+                    ));
+                }
                 duplicates.push((event.clone(), *priority));
             } else {
                 events.push((event.clone(), *priority));
